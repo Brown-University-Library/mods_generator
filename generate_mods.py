@@ -119,33 +119,42 @@ class DataHandler(object):
                 sys.exit(1)
 
     def get_mods_records(self):
-        id_col = self._get_id_col()
-        if id_col is None:
-            raise Exception('no ID column')
+        group_id_col = self._get_group_id_col()
+        mods_id_col = self._get_mods_id_col()
+        if group_id_col is None and mods_id_col is None:
+            msg = 'no group id column (called "id", or "group id")'
+            msg = msg + ' or mods id column (called "mods id" or with the mods id mapping)'
+            raise Exception(msg)
         index = self._ctrl_row
         mods_records = []
         mods_ids = {}
         data_file_col = self._get_filename_col()
         for data_row in self._get_data_rows():
             index += 1
-            rec_id = data_row[id_col].strip()
-            if not rec_id:
-                logger.warning('no id on row %s - skipping' % index)
-                continue
-            mods_id_col = self._get_mods_id_col()
+            group_id = None
+            mods_id = None
+            if group_id_col is not None:
+                group_id = data_row[group_id_col].strip()
             if mods_id_col is not None:
                 mods_id = data_row[mods_id_col].strip()
-            else:
-                if rec_id in mods_ids:
-                    mods_id = u'%s_%s' % (rec_id, mods_ids[rec_id])
-                    mods_ids[rec_id] = mods_ids[rec_id] + 1
+            if not (group_id or mods_id):
+                logger.warning(u'no id on row %s - skipping' % index)
+                continue
+            #if we don't have mods_id, generate it from group_id
+            if mods_id is None:
+                if group_id in mods_ids:
+                    mods_id = u'%s_%s' % (group_id, mods_ids[group_id])
+                    mods_ids[group_id] = mods_ids[group_id] + 1
                 else:
                     if self.obj_type == 'parent':
-                        mods_id = rec_id
-                        mods_ids[rec_id] = 1
+                        mods_id = group_id
+                        mods_ids[group_id] = 1
                     else:
-                        mods_id = u'%s_1' % rec_id
-                        mods_ids[rec_id] = 2
+                        mods_id = u'%s_1' % group_id
+                        mods_ids[group_id] = 2
+            #if we don't have group_id, generate it from mods_id
+            if group_id is None:
+                group_id = mods_id.split(u'_')[0]
             field_data = []
             cols_to_map = self.get_cols_to_map()
             for i, val in enumerate(data_row):
@@ -154,7 +163,7 @@ class DataHandler(object):
             data_files = []
             if data_file_col is not None:
                 data_files = [df.strip() for df in data_row[data_file_col].split(u',')]
-            mods_records.append(ModsRecord(rec_id, mods_id, field_data, data_files))
+            mods_records.append(ModsRecord(group_id, mods_id, field_data, data_files))
         return mods_records
 
     def _get_data_rows(self):
@@ -179,17 +188,18 @@ class DataHandler(object):
         return None
 
     def _get_mods_id_col(self):
-        ID_NAMES = [u'mods id', '<mods:mods id="">']
+        '''column that contains the actual mods id for this record'''
+        ID_NAMES = [u'mods id', u'<mods:mods id="">']
         return self._get_col_from_id_names(ID_NAMES)
 
-    def _get_id_col(self):
+    def _get_group_id_col(self):
         '''Get index of column that contains id for tying children to parents'''
-        ID_NAMES = [u'id', u'tracker item id', u'tracker id', u'record name', u'file id']
+        ID_NAMES = [u'id', u'group id']
         return self._get_col_from_id_names(ID_NAMES)
 
     def _get_filename_col(self):
-        '''Get index of column that contains data file name.'''
-        ID_NAMES = [u'file name', u'filename', u'file_id']
+        '''Get index of column that contains data file name(s).'''
+        ID_NAMES = [u'file name', u'filename']
         return self._get_col_from_id_names(ID_NAMES)
 
     def get_cols_to_map(self):

@@ -144,6 +144,7 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[0].field_data()[2]['mods_path'], u'<mods:titleInfo><mods:title>')
         self.assertEqual(mods_records[0].field_data()[2]['data'], u'Test 1')
         self.assertEqual(mods_records[0].group_id, u'test1')
+        self.assertEqual(mods_records[0].mods_id, u'test1')
         self.assertEqual(mods_records[1].group_id, u'test2')
         self.assertEqual(mods_records[0].field_data()[4]['data'], u'2005-10-21')
 
