@@ -54,13 +54,13 @@ class ModsRecord(object):
     def __init__(self, group_id, mods_id, field_data, data_files):
         self.group_id = group_id #this is what ties parent records to children
         self.mods_id = mods_id
-        self.parent_mods_filename = u'%s.mods' % group_id
-        self.mods_filename = u'%s.mods' % mods_id
+        self.parent_filename = u'%s.mods' % group_id
+        self.filename = u'%s.mods' % mods_id
         self._field_data = field_data
         self.data_files = data_files
 
     def field_data(self):
-        #return list of {'mods_path': xxx, 'data': xxx}
+        #return list of {'xml_path': xxx, 'data': xxx}
         return self._field_data
 
 
@@ -118,7 +118,7 @@ class DataHandler(object):
                 csvFile.close()
                 sys.exit(1)
 
-    def get_mods_records(self):
+    def get_xml_records(self):
         group_id_col = self._get_group_id_col()
         mods_id_col = self._get_mods_id_col()
         if group_id_col is None and mods_id_col is None:
@@ -159,7 +159,7 @@ class DataHandler(object):
             cols_to_map = self.get_cols_to_map()
             for i, val in enumerate(data_row):
                 if i in cols_to_map and len(val) > 0:
-                    field_data.append({'mods_path': cols_to_map[i], 'data': val})
+                    field_data.append({'xml_path': cols_to_map[i], 'data': val})
             data_files = []
             if data_file_col is not None:
                 data_files = [df.strip() for df in data_row[data_file_col].split(u',')]
@@ -851,14 +851,14 @@ def process(dataHandler, copy_parent_to_children=False):
     '''Function to go through all the data and process it.'''
     #get dicts of columns that should be mapped & where they go in MODS
     index = 1
-    for record in dataHandler.get_mods_records():
-        filename = record.mods_filename
+    for record in dataHandler.get_xml_records():
+        filename = record.filename
         if os.path.exists(os.path.join(XML_FILES_DIR, filename)):
             raise Exception('%s already exists!' % filename)
         logger.info('Processing row %d to %s.' % (index, filename))
         if copy_parent_to_children:
             #load parent mods object if desired (& it exists)
-            parent_filename = os.path.join(XML_FILES_DIR, record.parent_mods_filename)
+            parent_filename = os.path.join(XML_FILES_DIR, record.parent_filename)
             parent_mods = None
             if os.path.exists(parent_filename):
                 parent_mods = load_xmlobject_from_file(parent_filename, mods.Mods)
@@ -866,7 +866,7 @@ def process(dataHandler, copy_parent_to_children=False):
         else:
             mapper = Mapper()
         for field in record.field_data():
-            mapper.add_data(field['mods_path'], field['data'])
+            mapper.add_data(field['xml_path'], field['data'])
         mods_obj = mapper.get_mods()
         mods_data = unicode(mods_obj.serializeDocument(pretty=True), 'utf-8')
         with codecs.open(os.path.join(XML_FILES_DIR, filename), 'w', 'utf-8') as f:
