@@ -46,7 +46,7 @@ consFormat = logging.Formatter("%(levelname)s %(message)s")
 consoleHandler.setFormatter(consFormat)
 logger.addHandler(consoleHandler)
 
-MODS_DIR = "mods_files"
+XML_FILES_DIR = "xml_files"
 
 
 class ModsRecord(object):
@@ -854,10 +854,10 @@ def get_mods_filename(parent_id, mods_id=None):
         base_filename = mods_id
     else:
         base_filename = parent_id
-    filename = os.path.join(MODS_DIR, '%s.mods' % base_filename)
+    filename = os.path.join(XML_FILES_DIR, '%s.mods' % base_filename)
     ext = 1
     while os.path.exists(filename):
-        filename = os.path.join(MODS_DIR, base_filename + u'_' 
+        filename = os.path.join(XML_FILES_DIR, base_filename + u'_' 
             + str(ext) + u'.mods')
         ext += 1
     return filename
@@ -869,12 +869,12 @@ def process(dataHandler, copy_parent_to_children=False):
     index = 1
     for record in dataHandler.get_mods_records():
         filename = record.mods_filename
-        if os.path.exists(os.path.join(MODS_DIR, filename)):
+        if os.path.exists(os.path.join(XML_FILES_DIR, filename)):
             raise Exception('%s already exists!' % filename)
         logger.info('Processing row %d to %s.' % (index, filename))
         if copy_parent_to_children:
             #load parent mods object if desired (& it exists)
-            parent_filename = os.path.join(MODS_DIR, record.parent_mods_filename)
+            parent_filename = os.path.join(XML_FILES_DIR, record.parent_mods_filename)
             parent_mods = None
             if os.path.exists(parent_filename):
                 parent_mods = load_xmlobject_from_file(parent_filename, mods.Mods)
@@ -885,7 +885,7 @@ def process(dataHandler, copy_parent_to_children=False):
             mapper.add_data(field['mods_path'], field['data'])
         mods_obj = mapper.get_mods()
         mods_data = unicode(mods_obj.serializeDocument(pretty=True), 'utf-8')
-        with codecs.open(os.path.join(MODS_DIR, filename), 'w', 'utf-8') as f:
+        with codecs.open(os.path.join(XML_FILES_DIR, filename), 'w', 'utf-8') as f:
             f.write(mods_data)
         index = index + 1
 
@@ -913,9 +913,9 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
     #make sure we have a directory to put the mods files in
     try:
-        os.makedirs(MODS_DIR)
+        os.makedirs(XML_FILES_DIR)
     except OSError as err:
-        if os.path.isdir(MODS_DIR):
+        if os.path.isdir(XML_FILES_DIR):
             pass
         else:
             #dir creation error - re-raise it
