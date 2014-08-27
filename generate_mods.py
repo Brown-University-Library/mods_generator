@@ -29,7 +29,7 @@ from optparse import OptionParser
 
 import xlrd
 from eulxml.xmlmap import load_xmlobject_from_file
-from bdrxml import mods
+from bdrxml import mods, darwincore
 
 #set up logging to console & log file
 LOG_FILENAME = 'xml_generator.log'
@@ -394,27 +394,30 @@ def process_text_date(str_date, force_dates=False):
 
 class Mapper(object):
     '''Map data into a Mods object.
-    Each instance of this class can only handle 1 MODS object.'''
+    Each instance of this class can only handle 1 XML object.'''
 
-    def __init__(self, field_data, encoding='utf-8', parent_mods=None):
+    def __init__(self, record_type, field_data, parent_mods=None):
         self.dataSeparator = u'||'
-        self.encoding = encoding
         self._parent_mods = parent_mods
         #dict for keeping track of which fields we've cleared out the parent
         # info for. So we can have multiple columns in the spreadsheet w/ the same field.
         self._cleared_fields = {}
-        if parent_mods:
-            self._mods = parent_mods
+        self._record_type = record_type
+        if record_type == 'dwc':
+            self._xml_obj = darwincore.make_simple_darwin_record()
         else:
-            self._mods = mods.make_mods()
+            if parent_mods:
+                self._xml_obj = parent_mods
+            else:
+                self._xml_obj = mods.make_mods()
         for field in field_data:
             self.add_data(field['xml_path'], field['data'])
 
     def get_xml(self):
-        return self._mods
+        return self._xml_obj
 
     def add_data(self, mods_loc, data):
-        '''Method to actually put the data in the correct place of MODS obj.'''
+        '''Method to actually put the data in the correct place of XML obj.'''
         #parse location info into elements/attributes
         loc = LocationParser(mods_loc)
         base_element = loc.get_base_element()
@@ -422,30 +425,39 @@ class Mapper(object):
         data_vals = [data.strip() for data in data.split(self.dataSeparator)]
         #strip any empty data sections so we don't have to worry about it below
         data_vals = [self._get_data_divs(data, loc.has_sectioned_data) for data in data_vals if data]
+        if self._record_type == 'dwc':
+            self._process_dwc_element(base_element, location_sections, data_vals)
+        else:
+            self._process_mods_element(base_element, location_sections, data_vals)
+
+    def _process_dwc_element(self, base_element, location_sections, data_vals):
+        pass
+
+    def _process_mods_element(self, base_element, location_sections, data_vals):
         #handle various MODS elements
         if base_element['element'] == u'mods:mods':
             if 'ID' in base_element['attributes']:
-                self._mods.id = data_vals[0][0]
+                self._xml_obj.id = data_vals[0][0]
         elif base_element['element'] == u'mods:name':
             if not self._cleared_fields.get(u'names', None):
-                self._mods.names = []
+                self._xml_obj.names = []
                 self._cleared_fields[u'names'] = True
             self._add_name_data(base_element, location_sections, data_vals)
         elif base_element['element'] == u'mods:namePart':
             #grab the last name that was added
-            name = self._mods.names[-1]
+            name = self._xml_obj.names[-1]
             np = mods.NamePart(text=data_vals[0][0])
             if u'type' in base_element[u'attributes']:
                 np.type = base_element[u'attributes'][u'type']
             name.name_parts.append(np)
         elif base_element[u'element'] == u'mods:titleInfo':
             if not self._cleared_fields.get(u'title_info_list', None):
-                self._mods.title_info_list = []
+                self._xml_obj.title_info_list = []
                 self._cleared_fields[u'title_info_list'] = True
             self._add_title_data(base_element, location_sections, data_vals)
         elif base_element[u'element'] == u'mods:language':
             if not self._cleared_fields.get(u'languages', None):
-                self._mods.languages = []
+                self._xml_obj.languages = []
                 self._cleared_fields[u'languages'] = True
             for data in data_vals:
                 language = mods.Language()
@@ -455,51 +467,51 @@ class Mapper(object):
                 if u'type' in location_sections[0][0]['attributes']:
                     language_term.type = location_sections[0][0][u'attributes'][u'type']
                 language.terms.append(language_term)
-                self._mods.languages.append(language)
+                self._xml_obj.languages.append(language)
         elif base_element[u'element'] == u'mods:genre':
             if not self._cleared_fields.get(u'genres', None):
-                self._mods.genres = []
+                self._xml_obj.genres = []
                 self._cleared_fields[u'genres'] = True
             for data in data_vals:
                 genre = mods.Genre(text=data[0])
                 if 'authority' in base_element['attributes']:
                     genre.authority = base_element['attributes']['authority']
-                self._mods.genres.append(genre)
+                self._xml_obj.genres.append(genre)
         elif base_element['element'] == 'mods:originInfo':
             if not self._cleared_fields.get(u'origin_info', None):
-                self._mods.origin_info = None
+                self._xml_obj.origin_info = None
                 self._cleared_fields[u'origin_info'] = True
-                self._mods.create_origin_info()
+                self._xml_obj.create_origin_info()
             self._add_origin_info_data(base_element, location_sections, data_vals)
         elif base_element['element'] == 'mods:physicalDescription':
             if not self._cleared_fields.get(u'physical_description', None):
-                self._mods.physical_description = None
+                self._xml_obj.physical_description = None
                 self._cleared_fields[u'physical_description'] = True
                 #can only have one physical description currently
-                self._mods.create_physical_description()
+                self._xml_obj.create_physical_description()
             data_divs = data_vals[0]
             for index, section in enumerate(location_sections):
                 if section[0][u'element'] == 'mods:extent':
-                    self._mods.physical_description.extent = data_divs[index]
+                    self._xml_obj.physical_description.extent = data_divs[index]
                 elif section[0][u'element'] == 'mods:digitalOrigin':
-                    self._mods.physical_description.digital_origin = data_divs[index]
+                    self._xml_obj.physical_description.digital_origin = data_divs[index]
                 elif section[0][u'element'] == 'mods:note':
-                    self._mods.physical_description.note = data_divs[index]
+                    self._xml_obj.physical_description.note = data_divs[index]
         elif base_element['element'] == 'mods:typeOfResource':
             if not self._cleared_fields.get(u'typeOfResource', None):
-                self._mods.resource_type = None
+                self._xml_obj.resource_type = None
                 self._cleared_fields[u'typeOfResource'] = True
-            self._mods.resource_type = data_vals[0][0]
+            self._xml_obj.resource_type = data_vals[0][0]
         elif base_element['element'] == 'mods:abstract':
             if not self._cleared_fields.get(u'abstract', None):
-                self._mods.abstract = None
+                self._xml_obj.abstract = None
                 self._cleared_fields[u'abstract'] = True
                 #can only have one abstract currently
-                self._mods.create_abstract()
-            self._mods.abstract.text = data_vals[0][0]
+                self._xml_obj.create_abstract()
+            self._xml_obj.abstract.text = data_vals[0][0]
         elif base_element['element'] == 'mods:note':
             if not self._cleared_fields.get(u'notes', None):
-                self._mods.notes = []
+                self._xml_obj.notes = []
                 self._cleared_fields[u'notes'] = True
             for data in data_vals:
                 note = mods.Note(text=data[0])
@@ -507,10 +519,10 @@ class Mapper(object):
                     note.type = base_element['attributes']['type']
                 if 'displayLabel' in base_element['attributes']:
                     note.label = base_element['attributes']['displayLabel']
-                self._mods.notes.append(note)
+                self._xml_obj.notes.append(note)
         elif base_element['element'] == 'mods:subject':
             if not self._cleared_fields.get(u'subjects', None):
-                self._mods.subjects = []
+                self._xml_obj.subjects = []
                 self._cleared_fields[u'subjects'] = True
             for data in data_vals:
                 subject = mods.Subject()
@@ -537,10 +549,10 @@ class Mapper(object):
                             else:
                                 hg.country = div
                         subject.hierarchical_geographic = hg
-                self._mods.subjects.append(subject)
+                self._xml_obj.subjects.append(subject)
         elif base_element['element'] == 'mods:identifier':
             if not self._cleared_fields.get(u'identifiers', None):
-                self._mods.identifiers = []
+                self._xml_obj.identifiers = []
                 self._cleared_fields[u'identifiers'] = True
             for data in data_vals:
                 identifier = mods.Identifier(text=data[0])
@@ -548,10 +560,10 @@ class Mapper(object):
                     identifier.type = base_element['attributes']['type']
                 if 'displayLabel' in base_element['attributes']:
                     identifier.label = base_element['attributes']['displayLabel']
-                self._mods.identifiers.append(identifier)
+                self._xml_obj.identifiers.append(identifier)
         elif base_element['element'] == u'mods:location':
             if not self._cleared_fields.get(u'locations', None):
-                self._mods.locations = []
+                self._xml_obj.locations = []
                 self._cleared_fields[u'locations'] = True
             for data in data_vals:
                 loc = mods.Location()
@@ -576,10 +588,10 @@ class Mapper(object):
                                 ci.notes.append(note)
                                 hs.copy_information.append(ci)
                                 loc.holding_simple = hs
-                self._mods.locations.append(loc)
+                self._xml_obj.locations.append(loc)
         elif base_element['element'] == u'mods:relatedItem':
             if not self._cleared_fields.get(u'related', None):
-                self._mods.related_items = []
+                self._xml_obj.related_items = []
                 self._cleared_fields[u'related'] = True
             for data in data_vals:
                 related_item = mods.RelatedItem()
@@ -590,7 +602,7 @@ class Mapper(object):
                 if location_sections[0][0][u'element'] == u'mods:titleInfo':
                     if location_sections[0][1][u'element'] == u'mods:title':
                         related_item.title = data[0]
-                self._mods.related_items.append(related_item)
+                self._xml_obj.related_items.append(related_item)
         else:
             logger.error('element not handled! %s' % base_element)
             raise Exception('element not handled!')
@@ -612,7 +624,7 @@ class Mapper(object):
                         title.part_number = div
                     elif element[u'element'] == u'mods:nonSort':
                         title.non_sort = div
-            self._mods.title_info_list.append(title)
+            self._xml_obj.title_info_list.append(title)
 
     def _get_data_divs(self, data, has_sectioned_data):
         data_divs = []
@@ -677,11 +689,11 @@ class Mapper(object):
                         if u'authority' in role_attrs:
                             role.authority = role_attrs[u'authority']
                         name.roles.append(role)
-            self._mods.names.append(name)
+            self._xml_obj.names.append(name)
 
     def _add_origin_info_data(self, base_element, location_sections, data_vals):
         if u'displayLabel' in base_element['attributes']:
-            self._mods.origin_info.label = base_element[u'attributes'][u'displayLabel']
+            self._xml_obj.origin_info.label = base_element[u'attributes'][u'displayLabel']
         for data in data_vals:
             divs = data
             for index, section in enumerate(location_sections):
@@ -690,38 +702,38 @@ class Mapper(object):
                 if section[0][u'element'] == u'mods:dateCreated':
                     date = mods.DateCreated(date=divs[index])
                     date = self._set_date_attributes(date, section[0][u'attributes'])
-                    self._mods.origin_info.created.append(date)
+                    self._xml_obj.origin_info.created.append(date)
                 elif section[0][u'element'] == u'mods:dateIssued':
                     date = mods.DateIssued(date=divs[index])
                     date = self._set_date_attributes(date, section[0][u'attributes'])
-                    self._mods.origin_info.issued.append(date)
+                    self._xml_obj.origin_info.issued.append(date)
                 elif section[0][u'element'] == u'mods:dateCaptured':
                     date = mods.DateCaptured(date=divs[index])
                     date = self._set_date_attributes(date, section[0][u'attributes'])
-                    self._mods.origin_info.captured.append(date)
+                    self._xml_obj.origin_info.captured.append(date)
                 elif section[0][u'element'] == u'mods:dateValid':
                     date = mods.DateValid(date=divs[index])
                     date = self._set_date_attributes(date, section[0][u'attributes'])
-                    self._mods.origin_info.valid.append(date)
+                    self._xml_obj.origin_info.valid.append(date)
                 elif section[0][u'element'] == u'mods:dateModified':
                     date = mods.DateModified(date=divs[index])
                     date = self._set_date_attributes(date, section[0][u'attributes'])
-                    self._mods.origin_info.modified.append(date)
+                    self._xml_obj.origin_info.modified.append(date)
                 elif section[0][u'element'] == u'mods:copyrightDate':
                     date = mods.CopyrightDate(date=divs[index])
                     date = self._set_date_attributes(date, section[0][u'attributes'])
-                    self._mods.origin_info.copyright.append(date)
+                    self._xml_obj.origin_info.copyright.append(date)
                 elif section[0][u'element'] == u'mods:dateOther':
                     date = mods.DateOther(date=divs[index])
                     date = self._set_date_attributes(date, section[0][u'attributes'])
-                    self._mods.origin_info.other.append(date)
+                    self._xml_obj.origin_info.other.append(date)
                 elif section[0][u'element'] == u'mods:place':
                     place = mods.Place()
                     placeTerm = mods.PlaceTerm(text=divs[index])
                     place.place_terms.append(placeTerm)
-                    self._mods.origin_info.places.append(place)
+                    self._xml_obj.origin_info.places.append(place)
                 elif section[0][u'element'] == u'mods:publisher':
-                    self._mods.origin_info.publisher = divs[index]
+                    self._xml_obj.origin_info.publisher = divs[index]
                 else:
                     print(u'unhandled originInfo element: %s' % section)
                     raise Exception('unhandled originInfo element: %s' % section)
@@ -866,9 +878,9 @@ def process(dataHandler, copy_parent_to_children=False):
             parent_xml = None
             if os.path.exists(parent_filename):
                 parent_xml = load_xmlobject_from_file(parent_filename, mods.Mods)
-                mapper = Mapper(record.field_data(), parent_mods=parent_xml)
+                mapper = Mapper(record.record_type, record.field_data(), parent_mods=parent_xml)
         else:
-            mapper = Mapper(record.field_data())
+            mapper = Mapper(record.record_type, record.field_data())
         xml_obj = mapper.get_xml()
         xml_data = unicode(xml_obj.serializeDocument(pretty=True), 'utf-8')
         with codecs.open(os.path.join(XML_FILES_DIR, filename), 'w', 'utf-8') as f:

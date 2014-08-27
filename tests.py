@@ -5,6 +5,7 @@ import os
 
 from generate_mods import LocationParser, DataHandler, Mapper, process_text_date
 from bdrxml.mods import Mods
+from bdrxml.darwincore import SimpleDarwinRecord
 
 class TestLocationParser(unittest.TestCase):
 
@@ -309,7 +310,7 @@ class TestMapper(unittest.TestCase):
 
     def test_mods_output(self):
         self.maxDiff = None
-        m1 = Mapper([])
+        m1 = Mapper('mods', [])
         mods = m1.get_xml()
         self.assertTrue(isinstance(mods, Mods))
         #put some data in here, so we can pass this as a parent_mods to the next test
@@ -319,7 +320,7 @@ class TestMapper(unittest.TestCase):
         # this one isn't added again, and should still be in the output
         m1.add_data(u'<mods:physicalDescription><mods:extent>#<mods:digitalOrigin>#<mods:note>', u'1 video file#reformatted digital#note 1')
         #add all data as unicode, since that's how it should be coming from DataHandler
-        m = Mapper([], parent_mods=m1.get_xml())
+        m = Mapper('mods', [], parent_mods=m1.get_xml())
         m.add_data(u'<mods:mods ID="">', u'mods000')
         m.add_data(u'<mods:titleInfo><mods:title>#<mods:partName>#<mods:partNumber>', u'é. 1 Test#part \#1#1')
         m.add_data(u'<mods:titleInfo type="alternative" displayLabel="display"><mods:title>#<mods:nonSort>', u'Alt Title#The')
@@ -363,11 +364,16 @@ class TestMapper(unittest.TestCase):
         self.assertEqual(mods_data, self.FULL_MODS)
 
     def test_get_data_divs(self):
-        m = Mapper([])
+        m = Mapper('mods', [])
         self.assertEqual(m._get_data_divs(u'part1#part2#part3', False), [u'part1#part2#part3'])
         self.assertEqual(m._get_data_divs(u'part1#part2#part3', True), [u'part1', u'part2', u'part3'])
         self.assertEqual(m._get_data_divs(u'part\#1#part2#part\#3', True), [u'part#1', u'part2', u'part#3'])
         self.assertEqual(m._get_data_divs(u'part\#1 and \#1a#part2#part\#3', True), [u'part#1 and #1a', u'part2', u'part#3'])
+
+    def test_dwc(self):
+        m = Mapper('dwc', [])
+        dwc = m.get_xml()
+        self.assertTrue(isinstance(dwc, SimpleDarwinRecord))
 
 
 if __name__ == '__main__':
