@@ -104,15 +104,15 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[0].field_data()[2]['data'], u'Test 1')
         self.assertEqual(mods_records[0].group_id, u'test1')
         self.assertEqual(mods_records[1].group_id, u'test2')
-        self.assertEqual(mods_records[0].mods_id, u'test1')
-        self.assertEqual(mods_records[1].mods_id, u'test2')
+        self.assertEqual(mods_records[0].xml_id, u'test1')
+        self.assertEqual(mods_records[1].xml_id, u'test2')
         #test that process_text_date is working right
         self.assertEqual(mods_records[0].field_data()[4]['data'], u'2005-10-21')
         #test that we can get the second sheet correctly
         dh = DataHandler(os.path.join('test_files', 'data.xls'), sheet=2)
         mods_records = dh.get_xml_records()
         self.assertEqual(len(mods_records), 1)
-        self.assertEqual(mods_records[0].mods_id, u'mods0001')
+        self.assertEqual(mods_records[0].xml_id, u'mods0001')
         self.assertEqual(mods_records[0].field_data()[5]['data'], u'2008-10-21')
 
     def test_xlsx(self):
@@ -128,9 +128,9 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[0].field_data()[2]['data'], u'Test 1')
         self.assertEqual(mods_records[0].field_data()[4]['data'], u'2005-10-21')
         self.assertEqual(mods_records[0].group_id, u'test1')
-        self.assertEqual(mods_records[0].mods_id, u'test1_1') #_1 because it's a child
+        self.assertEqual(mods_records[0].xml_id, u'test1_1') #_1 because it's a child
         self.assertEqual(mods_records[1].group_id, u'test1')
-        self.assertEqual(mods_records[1].mods_id, u'test1_2')
+        self.assertEqual(mods_records[1].xml_id, u'test1_2')
 
     def test_csv(self):
         dh = DataHandler(os.path.join('test_files', 'data.csv'))
@@ -144,7 +144,7 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[0].field_data()[2]['xml_path'], u'<mods:titleInfo><mods:title>')
         self.assertEqual(mods_records[0].field_data()[2]['data'], u'Test 1')
         self.assertEqual(mods_records[0].group_id, u'test1')
-        self.assertEqual(mods_records[0].mods_id, u'test1')
+        self.assertEqual(mods_records[0].xml_id, u'test1')
         self.assertEqual(mods_records[1].group_id, u'test2')
         self.assertEqual(mods_records[0].field_data()[4]['data'], u'2005-10-21')
 
@@ -199,9 +199,6 @@ class TestOther(unittest.TestCase):
 class TestMapper(unittest.TestCase):
     '''Test Mapper class.'''
 
-    EMPTY_MODS = u'''<?xml version='1.0' encoding='UTF-8'?>
-<mods:mods xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-4.xsd"/>
-'''
     FULL_MODS = u'''<?xml version='1.0' encoding='UTF-8'?>
 <mods:mods xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-4.xsd" ID="mods000">
   <mods:physicalDescription>
@@ -312,10 +309,9 @@ class TestMapper(unittest.TestCase):
 
     def test_mods_output(self):
         self.maxDiff = None
-        m1 = Mapper()
-        mods = m1.get_mods()
+        m1 = Mapper([])
+        mods = m1.get_xml()
         self.assertTrue(isinstance(mods, Mods))
-        self.assertEqual(unicode(mods.serializeDocument(pretty=True), 'utf-8'), self.EMPTY_MODS)
         #put some data in here, so we can pass this as a parent_mods to the next test
         # these next two should be deleted and not displayed twice
         m1.add_data(u'<mods:identifier type="local" displayLabel="Original no.">', u'1591')
@@ -323,7 +319,7 @@ class TestMapper(unittest.TestCase):
         # this one isn't added again, and should still be in the output
         m1.add_data(u'<mods:physicalDescription><mods:extent>#<mods:digitalOrigin>#<mods:note>', u'1 video file#reformatted digital#note 1')
         #add all data as unicode, since that's how it should be coming from DataHandler
-        m = Mapper(parent_mods=m1.get_mods())
+        m = Mapper([], parent_mods=m1.get_xml())
         m.add_data(u'<mods:mods ID="">', u'mods000')
         m.add_data(u'<mods:titleInfo><mods:title>#<mods:partName>#<mods:partNumber>', u'é. 1 Test#part \#1#1')
         m.add_data(u'<mods:titleInfo type="alternative" displayLabel="display"><mods:title>#<mods:nonSort>', u'Alt Title#The')
@@ -357,7 +353,7 @@ class TestMapper(unittest.TestCase):
         m.add_data(u'<mods:originInfo><mods:dateValid encoding="w3cdtf">', u'1976-01-01')
         m.add_data(u'<mods:originInfo><mods:dateModified encoding="w3cdtf">', u'1977-01-01')
         m.add_data(u'<mods:originInfo><mods:copyrightDate>', u'1978-01-##')
-        mods = m.get_mods()
+        mods = m.get_xml()
         mods_data = unicode(mods.serializeDocument(pretty=True), 'utf-8')
         self.assertTrue(isinstance(mods, Mods))
         self.assertEqual(mods.title_info_list[0].title, u'é. 1 Test')
@@ -367,7 +363,7 @@ class TestMapper(unittest.TestCase):
         self.assertEqual(mods_data, self.FULL_MODS)
 
     def test_get_data_divs(self):
-        m = Mapper()
+        m = Mapper([])
         self.assertEqual(m._get_data_divs(u'part1#part2#part3', False), [u'part1#part2#part3'])
         self.assertEqual(m._get_data_divs(u'part1#part2#part3', True), [u'part1', u'part2', u'part3'])
         self.assertEqual(m._get_data_divs(u'part\#1#part2#part\#3', True), [u'part#1', u'part2', u'part#3'])

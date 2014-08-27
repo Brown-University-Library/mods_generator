@@ -32,7 +32,7 @@ from eulxml.xmlmap import load_xmlobject_from_file
 from bdrxml import mods
 
 #set up logging to console & log file
-LOG_FILENAME = 'dataset_mods.log'
+LOG_FILENAME = 'xml_generator.log'
 logger = logging.getLogger('simple')
 logger.setLevel(logging.DEBUG)
 fileHandler = logging.handlers.RotatingFileHandler(
@@ -49,13 +49,15 @@ logger.addHandler(consoleHandler)
 XML_FILES_DIR = "xml_files"
 
 
-class ModsRecord(object):
+class XmlRecord(object):
 
-    def __init__(self, group_id, mods_id, field_data, data_files):
+    def __init__(self, group_id, xml_id, field_data, data_files):
         self.group_id = group_id #this is what ties parent records to children
-        self.mods_id = mods_id
-        self.parent_filename = u'%s.mods' % group_id
-        self.filename = u'%s.mods' % mods_id
+        self.xml_id = xml_id
+        if u'<dc' in field_data[0]['xml_path'] or u'<dwc' in field_data[0]['xml_path']:
+            self.record_type = 'dwc'
+        else:
+            self.record_type = 'mods'
         self._field_data = field_data
         self.data_files = data_files
 
@@ -120,41 +122,41 @@ class DataHandler(object):
 
     def get_xml_records(self):
         group_id_col = self._get_group_id_col()
-        mods_id_col = self._get_mods_id_col()
-        if group_id_col is None and mods_id_col is None:
+        xml_id_col = self._get_xml_id_col()
+        if group_id_col is None and xml_id_col is None:
             msg = 'no group id column (called "id", or "group id")'
-            msg = msg + ' or mods id column (called "mods id" or with the mods id mapping)'
+            msg = msg + ' or xml id column (called "mods id" or with the xml id mapping)'
             raise Exception(msg)
         index = self._ctrl_row
-        mods_records = []
-        mods_ids = {}
+        xml_records = []
+        xml_ids = {}
         data_file_col = self._get_filename_col()
         for data_row in self._get_data_rows():
             index += 1
             group_id = None
-            mods_id = None
+            xml_id = None
             if group_id_col is not None:
                 group_id = data_row[group_id_col].strip()
-            if mods_id_col is not None:
-                mods_id = data_row[mods_id_col].strip()
-            if not (group_id or mods_id):
+            if xml_id_col is not None:
+                xml_id = data_row[xml_id_col].strip()
+            if not (group_id or xml_id):
                 logger.warning(u'no id on row %s - skipping' % index)
                 continue
-            #if we don't have mods_id, generate it from group_id
-            if mods_id is None:
-                if group_id in mods_ids:
-                    mods_id = u'%s_%s' % (group_id, mods_ids[group_id])
-                    mods_ids[group_id] = mods_ids[group_id] + 1
+            #if we don't have xml_id, generate it from group_id
+            if xml_id is None:
+                if group_id in xml_ids:
+                    xml_id = u'%s_%s' % (group_id, xml_ids[group_id])
+                    xml_ids[group_id] = xml_ids[group_id] + 1
                 else:
                     if self.obj_type == 'parent':
-                        mods_id = group_id
-                        mods_ids[group_id] = 1
+                        xml_id = group_id
+                        xml_ids[group_id] = 1
                     else:
-                        mods_id = u'%s_1' % group_id
-                        mods_ids[group_id] = 2
-            #if we don't have group_id, generate it from mods_id
+                        xml_id = u'%s_1' % group_id
+                        xml_ids[group_id] = 2
+            #if we don't have group_id, generate it from xml_id
             if group_id is None:
-                group_id = mods_id.split(u'_')[0]
+                group_id = xml_id.split(u'_')[0]
             field_data = []
             cols_to_map = self.get_cols_to_map()
             for i, val in enumerate(data_row):
@@ -163,8 +165,8 @@ class DataHandler(object):
             data_files = []
             if data_file_col is not None:
                 data_files = [df.strip() for df in data_row[data_file_col].split(u',')]
-            mods_records.append(ModsRecord(group_id, mods_id, field_data, data_files))
-        return mods_records
+            xml_records.append(XmlRecord(group_id, xml_id, field_data, data_files))
+        return xml_records
 
     def _get_data_rows(self):
         '''data rows will be all the rows after the control row'''
@@ -172,7 +174,7 @@ class DataHandler(object):
             yield self.get_row(i)
 
     def _get_control_row(self):
-        '''Retrieve the row that controls MODS mapping locations.'''
+        '''Retrieve the row that controls XML mapping locations.'''
         return self.get_row(self._ctrl_row)
 
     def _get_col_from_id_names(self, id_names):
@@ -187,8 +189,8 @@ class DataHandler(object):
         #we didn't find the column
         return None
 
-    def _get_mods_id_col(self):
-        '''column that contains the actual mods id for this record'''
+    def _get_xml_id_col(self):
+        '''column that contains the xml id for this record'''
         ID_NAMES = [u'mods id', u'<mods:mods id="">']
         return self._get_col_from_id_names(ID_NAMES)
 
@@ -203,15 +205,15 @@ class DataHandler(object):
         return self._get_col_from_id_names(ID_NAMES)
 
     def get_cols_to_map(self):
-        '''Get a dict of columns & values in dataset that should be mapped to MODS
+        '''Get a dict of columns & values in dataset that should be mapped to XML
         (some will just be ignored).
         '''
         cols = {}
         ctrl_row = self._get_control_row()
         for i, val in enumerate(ctrl_row):
             val = val.strip()
-            #we'll assume it's to be mapped if we see the start of a MODS tag
-            if val.startswith(u'<mods'):
+            #we'll assume it's to be mapped if we see the start of an XML  tag
+            if val.startswith(u'<'):
                 cols[i] = val
         return cols
 
@@ -394,7 +396,7 @@ class Mapper(object):
     '''Map data into a Mods object.
     Each instance of this class can only handle 1 MODS object.'''
 
-    def __init__(self, encoding='utf-8', parent_mods=None):
+    def __init__(self, field_data, encoding='utf-8', parent_mods=None):
         self.dataSeparator = u'||'
         self.encoding = encoding
         self._parent_mods = parent_mods
@@ -405,8 +407,10 @@ class Mapper(object):
             self._mods = parent_mods
         else:
             self._mods = mods.make_mods()
+        for field in field_data:
+            self.add_data(field['xml_path'], field['data'])
 
-    def get_mods(self):
+    def get_xml(self):
         return self._mods
 
     def add_data(self, mods_loc, data):
@@ -852,25 +856,23 @@ def process(dataHandler, copy_parent_to_children=False):
     #get dicts of columns that should be mapped & where they go in MODS
     index = 1
     for record in dataHandler.get_xml_records():
-        filename = record.filename
+        filename = u'%s.%s' % (record.filename, record.record_type)
         if os.path.exists(os.path.join(XML_FILES_DIR, filename)):
             raise Exception('%s already exists!' % filename)
         logger.info('Processing row %d to %s.' % (index, filename))
         if copy_parent_to_children:
             #load parent mods object if desired (& it exists)
-            parent_filename = os.path.join(XML_FILES_DIR, record.parent_filename)
-            parent_mods = None
+            parent_filename = os.path.join(XML_FILES_DIR, u'%s.%s' % (record.group_id, record.record_type))
+            parent_xml = None
             if os.path.exists(parent_filename):
-                parent_mods = load_xmlobject_from_file(parent_filename, mods.Mods)
-                mapper = Mapper(parent_mods=parent_mods)
+                parent_xml = load_xmlobject_from_file(parent_filename, mods.Mods)
+                mapper = Mapper(record.field_data(), parent_mods=parent_xml)
         else:
-            mapper = Mapper()
-        for field in record.field_data():
-            mapper.add_data(field['xml_path'], field['data'])
-        mods_obj = mapper.get_mods()
-        mods_data = unicode(mods_obj.serializeDocument(pretty=True), 'utf-8')
+            mapper = Mapper(record.field_data())
+        xml_obj = mapper.get_xml()
+        xml_data = unicode(xml_obj.serializeDocument(pretty=True), 'utf-8')
         with codecs.open(os.path.join(XML_FILES_DIR, filename), 'w', 'utf-8') as f:
-            f.write(mods_data)
+            f.write(xml_data)
         index = index + 1
 
 
