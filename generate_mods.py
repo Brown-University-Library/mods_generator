@@ -368,7 +368,7 @@ def process_text_date(str_date, force_dates=False):
                 logger.warning('Error creating date from ' + str_date)
                 return str_date
     else:
-        logger.warning('Could not parse date string: ' + str_date)
+        #logger.warning('Could not parse date string: ' + str_date)
         return str_date
     #at this point, we have newDate, but it could still have been ambiguous
     #day & month are both between 1 and 12 & not equal - ambiguous
@@ -554,7 +554,6 @@ class Mapper(object):
                     elif section[0]['element'] == 'mods:geographic':
                         subject.geographic = div
                     elif section[0]['element'] == 'mods:hierarchicalGeographic':
-                        print(u'%s' % section)
                         hg = mods.HierarchicalGeographic()
                         if section[1]['element'] == 'mods:country':
                             if 'data' in section[1]:
@@ -883,7 +882,7 @@ def process(dataHandler, copy_parent_to_children=False):
     #get dicts of columns that should be mapped & where they go in MODS
     index = 1
     for record in dataHandler.get_xml_records():
-        filename = u'%s.%s' % (record.filename, record.record_type)
+        filename = u'%s.%s' % (record.xml_id, record.record_type)
         if os.path.exists(os.path.join(XML_FILES_DIR, filename)):
             raise Exception('%s already exists!' % filename)
         logger.info('Processing row %d to %s.' % (index, filename))
