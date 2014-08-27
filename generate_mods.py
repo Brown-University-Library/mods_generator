@@ -209,6 +209,7 @@ class DataHandler(object):
         cols = {}
         ctrl_row = self._get_control_row()
         for i, val in enumerate(ctrl_row):
+            val = val.strip()
             #we'll assume it's to be mapped if we see the start of a MODS tag
             if val.startswith(u'<mods'):
                 cols[i] = val
