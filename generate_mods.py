@@ -733,7 +733,7 @@ class Mapper(object):
 
 
 class LocationParser(object):
-    '''class for parsing dataset location instructions.
+    '''class for parsing dataset location instructions (for various XML formats).
     eg. <mods:name type="personal"><mods:namePart>#<mods:namePart type="date">#<mods:namePart type="termsOfAddress">'''
 
     def __init__(self, data):
@@ -845,22 +845,6 @@ class LocationParser(object):
                 logger.error('Error parsing attributes. data = "%s"' % data)
                 raise Exception('Error parsing attributes!')
         return attributes
-
-
-def get_mods_filename(parent_id, mods_id=None):
-    #use a mods id value if available
-    #otherwise, take the id and loop until we get a filename that doesn't exist yet
-    if mods_id:
-        base_filename = mods_id
-    else:
-        base_filename = parent_id
-    filename = os.path.join(XML_FILES_DIR, '%s.mods' % base_filename)
-    ext = 1
-    while os.path.exists(filename):
-        filename = os.path.join(XML_FILES_DIR, base_filename + u'_' 
-            + str(ext) + u'.mods')
-        ext += 1
-    return filename
 
 
 def process(dataHandler, copy_parent_to_children=False):
