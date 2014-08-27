@@ -5,13 +5,10 @@ in the mods_files directory, logging the output to dataset_mods.log.
 Run './generate_mods.py --help' to see various options.
 
 Notes: 
-1. Requirements: xlrd, lxml, and bdrxml.
+1. Requirements: xlrd, eulxml, and bdrxml.
 2. The spreadsheet can be any version of Excel, or a CSV file.
-3. The first row of the dataset is for headers, the second row is for
-    MODS mapping tags, and the rest of the rows are for the data.
-4. The control row should have the full MODS path for the data, in the
-    following format: <mods:name type="personal"><mods:namePart>
-5. Unicode - all text strings from xlrd (for Excel files) are Unicode. For xlrd
+3. See the test files for the format of the spreadsheet/csv file.
+4. Unicode - all text strings from xlrd (for Excel files) are Unicode. For xlrd
     numbers, we convert those into Unicode, since we're just writing text out
     to files. The encoding of CSV files can be specified as an argument (if 
     it's not a valid encoding for Python, a LookupError will be raised). The
@@ -21,9 +18,7 @@ Notes:
 
 '''
 import csv
-import io
 import sys
-import string
 import logging
 import logging.handlers
 import datetime
@@ -32,7 +27,6 @@ import codecs
 import re
 from optparse import OptionParser
 
-from lxml import etree
 import xlrd
 from eulxml.xmlmap import load_xmlobject_from_file
 from bdrxml import mods
@@ -52,16 +46,15 @@ consFormat = logging.Formatter("%(levelname)s %(message)s")
 consoleHandler.setFormatter(consFormat)
 logger.addHandler(consoleHandler)
 
-#directory for mods files
 MODS_DIR = "mods_files"
 
 
 class ModsRecord(object):
 
-    def __init__(self, id, mods_id, field_data, data_files):
-        self.id = id #this is what ties parent records to children
-        self.mods_id = mods_id #this object's mods id (from a column or calculated)
-        self.parent_mods_filename = u'%s.mods' % id
+    def __init__(self, group_id, mods_id, field_data, data_files):
+        self.group_id = group_id #this is what ties parent records to children
+        self.mods_id = mods_id
+        self.parent_mods_filename = u'%s.mods' % group_id
         self.mods_filename = u'%s.mods' % mods_id
         self._field_data = field_data
         self.data_files = data_files
@@ -79,7 +72,7 @@ class DataHandler(object):
     which is what xlrd uses, and we convert all CSV data to unicode objects
     as well.
     '''
-    def __init__(self, filename, inputEncoding='utf-8', sheet=1, ctrlRow=2, forceDates=False, obj_type='parent'):
+    def __init__(self, filename, input_encoding='utf-8', sheet=1, ctrl_row=2, force_dates=False, obj_type='parent'):
         '''Open file and get data from correct sheet.
         
         First, try opening the file as an excel spreadsheet.
@@ -87,23 +80,17 @@ class DataHandler(object):
         Exit with error if CSV doesn't work.
         '''
         self.obj_type = obj_type
-        #set the date override value
-        self.forceDates = forceDates
-        self.inputEncoding = inputEncoding
-        self._ctrlRow = ctrlRow
-        #open file
+        self._force_dates = force_dates
+        self._input_encoding = input_encoding
+        self._ctrl_row = ctrl_row
         try:
             self.book = xlrd.open_workbook(filename)
             self.dataset = self.book.sheet_by_index(int(sheet)-1)
-            self.dataType = 'xlrd'
-            logger.debug('Got "%s" dataset.' % self.dataset.name)
+            self.data_type = 'xlrd'
         except xlrd.XLRDError as xerr:
-            logger.debug('Failed xlrd open: %s.' % repr(xerr))
-            #now try using csv
+            #if it's not excel, try csv
             try:
-                #need to open the file with whatever encoding it's in
-                logger.debug('opening file with ' + self.inputEncoding + ' encoding.')
-                csvFile = codecs.open(filename, 'r', self.inputEncoding)
+                csvFile = codecs.open(filename, 'r', self._input_encoding)
                 #read some test data to pass to sniffer for checking the dialect
                 data = csvFile.read(4096) #data is unicode object
                 csvFile.seek(0)
@@ -113,21 +100,20 @@ class DataHandler(object):
                 #set doublequote to true because that's the default and the Sniffer doesn't
                 #   seem to pick it up right
                 dialect.doublequote = True
-                self.dataType = 'csv'
+                self.data_type = 'csv'
                 #CSV module doesn't handle unicode correctly, so temporarily
                 #   encode data as UTF-8, which it can handle.
                 csvReader = csv.reader(self._utf_8_encoder(csvFile), dialect)
-                #self.csvData is a list of lists of the row data
+                #self.csvData will be a list of lists of the row data
                 self.csvData = []
                 for row in csvReader:
                     if len(row) > 0:
                         #convert all the data back to unicode since we're done w/ CSV module
                         row = [unicode(cell, 'utf-8') for cell in row]
                         self.csvData.append(row)
-                logger.debug('Got CSV data')
                 csvFile.close()
             except Exception as e:
-                logger.error(str(e))
+                logger.error(u'%s' % e)
                 logger.error('Could not recognize file format. Exiting.')
                 csvFile.close()
                 sys.exit(1)
@@ -136,7 +122,7 @@ class DataHandler(object):
         id_col = self._get_id_col()
         if id_col is None:
             raise Exception('no ID column')
-        index = self._ctrlRow
+        index = self._ctrl_row
         mods_records = []
         mods_ids = {}
         data_file_col = self._get_filename_col()
@@ -173,12 +159,12 @@ class DataHandler(object):
 
     def _get_data_rows(self):
         '''data rows will be all the rows after the control row'''
-        for i in xrange(self._ctrlRow+1, self._get_total_rows()+1): #xrange doesn't include the stop value
+        for i in xrange(self._ctrl_row+1, self._get_total_rows()+1): #xrange doesn't include the stop value
             yield self.get_row(i)
 
     def _get_control_row(self):
         '''Retrieve the row that controls MODS mapping locations.'''
-        return self.get_row(self._ctrlRow)
+        return self.get_row(self._ctrl_row)
 
     def _get_col_from_id_names(self, id_names):
         #try control row first
@@ -189,7 +175,7 @@ class DataHandler(object):
         for i, val in enumerate(self.get_row(1)):
             if val.lower() in id_names:
                 return i
-        #return None if we didn't find anything
+        #we didn't find the column
         return None
 
     def _get_mods_id_col(self):
@@ -222,19 +208,19 @@ class DataHandler(object):
         '''Retrieve a list of unicode values (index is 1-based like excel)'''
         #subtract 1 from index so that it's 0-based like xlrd and csvData list
         index = index - 1
-        if self.dataType == 'xlrd':
+        if self.data_type == 'xlrd':
             row = self.dataset.row_values(index)
             #In a data column that's mapped to a date field, we could find a text
             #   string that looks like a date - we might want to reformat 
             #   that as well.
-            if index > (self._ctrlRow-1):
+            if index > (self._ctrl_row-1):
                 for i, v in enumerate(self._get_control_row()):
                     if 'date' in v:
                         if isinstance(row[i], basestring):
                             #we may have a text date, so see if we can understand it
                             # *process_text_date will return a text value of the
                             #   reformatted date if possible, else the original value
-                            row[i] = process_text_date(row[i], self.forceDates)
+                            row[i] = process_text_date(row[i], self._force_dates)
             for i, v in enumerate(row):
                 if isinstance(v, float):
                     #there are some interesting things that happen
@@ -265,22 +251,22 @@ class DataHandler(object):
                         else:
                             #assume full date/time
                             row[i] = unicode('{0:%Y-%m-%d %H:%M:%S}'.format(d))
-        elif self.dataType == 'csv':
+        elif self.data_type == 'csv':
             row = self.csvData[index]
-            if index > (self._ctrlRow-1):
+            if index > (self._ctrl_row-1):
                 for i, v in enumerate(self._get_control_row()):
                     if 'date' in v:
                         if isinstance(row[i], basestring):
                             #we may have a text date, so see if we can understand it
                             # *process_text_date will return a text value of the
                             #   reformatted date if possible, else the original value
-                            row[i] = process_text_date(row[i], self.forceDates)
+                            row[i] = process_text_date(row[i], self._force_dates)
         #this final loop should be unnecessary, but it's a final check to
         #   make sure everything is unicode.
         for i, v in enumerate(row):
             if not isinstance(v, unicode):
                 try:
-                    row[i] = unicode(v, self.inputEncoding)
+                    row[i] = unicode(v, self._input_encoding)
                 #if v isn't a string, we might get this error, so try without
                 #   the encoding
                 except TypeError:
@@ -290,31 +276,30 @@ class DataHandler(object):
 
     def _utf_8_encoder(self, unicode_csv_data):
         '''From docs.python.org/2.6/library/csv.html
-        
         CSV module doesn't handle unicode objects, but should handle UTF-8 data.'''
         for line in unicode_csv_data:
             yield line.encode('utf-8')
 
     def _get_total_rows(self):
         '''Get total number of rows in the dataset.'''
-        totalRows = 0
-        if self.dataType == 'xlrd':
-            totalRows = self.dataset.nrows
-        elif self.dataType == 'csv':
-            totalRows = len(self.csvData)
-        return totalRows
+        total_rows = 0
+        if self.data_type == 'xlrd':
+            total_rows = self.dataset.nrows
+        elif self.data_type == 'csv':
+            total_rows = len(self.csvData)
+        return total_rows
 
 
-def process_text_date(strDate, forceDates=False):
+def process_text_date(str_date, force_dates=False):
     '''Take a text-based date and try to reformat it to yyyy-mm-dd if needed.
         
     Note: in xx/xx/xx or xx-xx-xx, we assume that year is last, not first.'''
-    #do some checking on strDate - if it's not what we're looking for,
-    #   just return strDate without changing anything
-    if not isinstance(strDate, basestring):
-        return strDate
-    if len(strDate) == 0:
-        return strDate
+    #do some checking on str_date - if it's not what we're looking for,
+    #   just return str_date without changing anything
+    if not isinstance(str_date, basestring):
+        return str_date
+    if len(str_date) == 0:
+        return str_date
     #Some date formats we could understand:
     #dd/dd/dddd, dd/dd/dd, d/d/dd, ...
     mmddyy = re.compile('^\d?\d/\d?\d/\d\d$')
@@ -323,75 +308,73 @@ def process_text_date(strDate, forceDates=False):
     mmddyy2 = re.compile('^\d?\d-\d?\d-\d\d$')
     mmddyyyy2 = re.compile('^\d?\d-\d?\d-\d\d\d\d$')
     format = '' #flag to remember which format we used
-    if mmddyy.search(strDate):
+    if mmddyy.search(str_date):
         try:
             #try mm/dd/yy first, since that should be more common in the US
-            newDate = datetime.datetime.strptime(strDate, '%m/%d/%y')
+            newDate = datetime.datetime.strptime(str_date, '%m/%d/%y')
             format = 'mmddyy'
         except ValueError:
             try:
-                newDate = datetime.datetime.strptime(strDate, '%d/%m/%y')
+                newDate = datetime.datetime.strptime(str_date, '%d/%m/%y')
                 format = 'ddmmyy'
             except ValueError:
-                logger.warning('Error creating date from ' + strDate)
-                return strDate
-    elif mmddyyyy.search(strDate):
+                logger.warning('Error creating date from ' + str_date)
+                return str_date
+    elif mmddyyyy.search(str_date):
         try:
-            newDate = datetime.datetime.strptime(strDate, '%m/%d/%Y')
+            newDate = datetime.datetime.strptime(str_date, '%m/%d/%Y')
             format = 'mmddyyyy'
         except ValueError:
             try:
-                newDate = datetime.datetime.strptime(strDate, '%d/%m/%Y')
+                newDate = datetime.datetime.strptime(str_date, '%d/%m/%Y')
                 format = 'ddmmyyyy'
             except ValueError:
-                logger.warning('Error creating date from ' + strDate)
-                return strDate
-    elif mmddyy2.search(strDate):
+                logger.warning('Error creating date from ' + str_date)
+                return str_date
+    elif mmddyy2.search(str_date):
         try:
             #try mm-dd-yy first, since that should be more common
-            newDate = datetime.datetime.strptime(strDate, '%m-%d-%y')
+            newDate = datetime.datetime.strptime(str_date, '%m-%d-%y')
             format = 'mmddyy'
         except ValueError:
             try:
-                newDate = datetime.datetime.strptime(strDate, '%d-%m-%y')
+                newDate = datetime.datetime.strptime(str_date, '%d-%m-%y')
                 format = 'ddmmyy'
             except ValueError:
-                logger.warning('Error creating date from ' + strDate)
-                return strDate
-    elif mmddyyyy2.search(strDate):
+                logger.warning('Error creating date from ' + str_date)
+                return str_date
+    elif mmddyyyy2.search(str_date):
         try:
-            newDate = datetime.datetime.strptime(strDate, '%m-%d-%Y')
+            newDate = datetime.datetime.strptime(str_date, '%m-%d-%Y')
             format = 'mmddyyyy'
         except ValueError:
             try:
-                newDate = datetime.datetime.strptime(strDate, '%d-%m-%Y')
+                newDate = datetime.datetime.strptime(str_date, '%d-%m-%Y')
                 format = 'ddmmyyyy'
             except ValueError:
-                logger.warning('Error creating date from ' + strDate)
-                return strDate
+                logger.warning('Error creating date from ' + str_date)
+                return str_date
     else:
-        #logger.warning('Could not parse date string: ' + strDate)
-        return strDate
+        logger.warning('Could not parse date string: ' + str_date)
+        return str_date
     #at this point, we have newDate, but it could still have been ambiguous
     #day & month are both between 1 and 12 & not equal - ambiguous
     if newDate.day <= 12 and newDate.day != newDate.month: 
-        if forceDates:
-            logger.warning('Ambiguous day/month: ' + strDate + 
-                        '. Using it anyway.')
+        if force_dates:
+            logger.warning('Ambiguous day/month: %s. Using it anyway.' % str_date)
             return newDate.strftime('%Y-%m-%d')
         else:
-            logger.warning('Ambiguous day/month: ' + strDate)
-            return strDate
+            logger.warning('Ambiguous day/month: %s' % str_date)
+            return str_date
     #year is only two digits - don't know the century, or if year was
     # interchanged with month or day
     elif format == 'mmddyy' or format == 'ddmmyy':
-        if forceDates:
-            logger.warning('Ambiguous year: ' + strDate +
-                        '. Using it anyway.')
+        if force_dates:
+            logger.warning('Ambiguous year: %s. Using it anyway.' % str_date)
             return newDate.strftime('%Y-%m-%d')
         else:
-            logger.warning('Ambiguous year: ' + strDate)
-            return strDate
+            logger.warning('Ambiguous year: ' + str_date)
+            return str_date
     else:
         return newDate.strftime('%Y-%m-%d')
 
@@ -897,8 +880,6 @@ def process(dataHandler, copy_parent_to_children=False):
 
 
 if __name__ == '__main__':
-    logger.info('Processing dataset to MODS files')
-    #get options
     parser = OptionParser()
     parser.add_option('-t', '--type',
                     action='store', dest='type', default='parent',

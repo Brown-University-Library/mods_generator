@@ -102,8 +102,8 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[0].field_data()[0]['data'], u'123')
         self.assertEqual(mods_records[0].field_data()[2]['mods_path'], u'<mods:titleInfo><mods:title>')
         self.assertEqual(mods_records[0].field_data()[2]['data'], u'Test 1')
-        self.assertEqual(mods_records[0].id, u'test1')
-        self.assertEqual(mods_records[1].id, u'test2')
+        self.assertEqual(mods_records[0].group_id, u'test1')
+        self.assertEqual(mods_records[1].group_id, u'test2')
         self.assertEqual(mods_records[0].mods_id, u'test1')
         self.assertEqual(mods_records[1].mods_id, u'test2')
         #test that process_text_date is working right
@@ -118,7 +118,7 @@ class TestDataHandler(unittest.TestCase):
     def test_xlsx(self):
         dh = DataHandler(os.path.join('test_files', 'data.xlsx'), obj_type='child')
         mods_records = dh.get_mods_records()
-        self.assertEqual(mods_records[0].id, u'test1')
+        self.assertEqual(mods_records[0].group_id, u'test1')
         self.assertEqual(len(mods_records), 2)
         self.assertTrue(isinstance(mods_records[0].field_data()[0]['mods_path'], unicode))
         self.assertTrue(isinstance(mods_records[0].field_data()[0]['data'], unicode))
@@ -127,15 +127,15 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[0].field_data()[2]['mods_path'], u'<mods:titleInfo><mods:title>')
         self.assertEqual(mods_records[0].field_data()[2]['data'], u'Test 1')
         self.assertEqual(mods_records[0].field_data()[4]['data'], u'2005-10-21')
-        self.assertEqual(mods_records[0].id, u'test1')
+        self.assertEqual(mods_records[0].group_id, u'test1')
         self.assertEqual(mods_records[0].mods_id, u'test1_1') #_1 because it's a child
-        self.assertEqual(mods_records[1].id, u'test1')
+        self.assertEqual(mods_records[1].group_id, u'test1')
         self.assertEqual(mods_records[1].mods_id, u'test1_2')
 
     def test_csv(self):
         dh = DataHandler(os.path.join('test_files', 'data.csv'))
         mods_records = dh.get_mods_records()
-        self.assertEqual(mods_records[0].id, u'test1')
+        self.assertEqual(mods_records[0].group_id, u'test1')
         self.assertEqual(len(mods_records), 2)
         self.assertTrue(isinstance(mods_records[0].field_data()[0]['mods_path'], unicode))
         self.assertTrue(isinstance(mods_records[0].field_data()[0]['data'], unicode))
@@ -143,14 +143,14 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[0].field_data()[0]['data'], u'123')
         self.assertEqual(mods_records[0].field_data()[2]['mods_path'], u'<mods:titleInfo><mods:title>')
         self.assertEqual(mods_records[0].field_data()[2]['data'], u'Test 1')
-        self.assertEqual(mods_records[0].id, u'test1')
-        self.assertEqual(mods_records[1].id, u'test2')
+        self.assertEqual(mods_records[0].group_id, u'test1')
+        self.assertEqual(mods_records[1].group_id, u'test2')
         self.assertEqual(mods_records[0].field_data()[4]['data'], u'2005-10-21')
 
     def test_csv_small(self):
         dh = DataHandler(os.path.join('test_files', 'data-small.csv'))
         mods_records = dh.get_mods_records()
-        self.assertEqual(mods_records[0].id, u'test1')
+        self.assertEqual(mods_records[0].group_id, u'test1')
         self.assertEqual(len(mods_records), 1)
         self.assertTrue(isinstance(mods_records[0].field_data()[0]['mods_path'], unicode))
         self.assertTrue(isinstance(mods_records[0].field_data()[0]['data'], unicode))
@@ -158,7 +158,7 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[0].field_data()[0]['data'], u'123')
         self.assertEqual(mods_records[0].field_data()[2]['mods_path'], u'<mods:titleInfo><mods:title>')
         self.assertEqual(mods_records[0].field_data()[2]['data'], u'Test 1')
-        self.assertEqual(mods_records[0].id, u'test1')
+        self.assertEqual(mods_records[0].group_id, u'test1')
         self.assertEqual(mods_records[0].field_data()[4]['data'], u'2005-10-21')
 
 
