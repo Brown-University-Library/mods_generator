@@ -431,7 +431,22 @@ class Mapper(object):
             self._process_mods_element(base_element, location_sections, data_vals)
 
     def _process_dwc_element(self, base_element, location_sections, data_vals):
-        pass
+        if base_element['element'] == u'dwc:scientificName':
+            self._xml_obj.dwc_scientific_name = data_vals[0][0]
+        elif base_element['element'] == u'dwc:higherClassification':
+            self._xml_obj.dwc_higher_classification = data_vals[0][0]
+        elif base_element['element'] == u'dwc:kingdom':
+            self._xml_obj.dwc_kingdom = data_vals[0][0]
+        elif base_element['element'] == u'dwc:phylum':
+            self._xml_obj.dwc_phylum = data_vals[0][0]
+        elif base_element['element'] == u'dwc:class':
+            self._xml_obj.dwc_class = data_vals[0][0]
+        elif base_element['element'] == u'dwc:order':
+            self._xml_obj.dwc_order = data_vals[0][0]
+        elif base_element['element'] == u'dwc:family':
+            self._xml_obj.dwc_family = data_vals[0][0]
+        elif base_element['element'] == u'dwc:genus':
+            self._xml_obj.dwc_genus = data_vals[0][0]
 
     def _process_mods_element(self, base_element, location_sections, data_vals):
         #handle various MODS elements

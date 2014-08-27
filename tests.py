@@ -372,8 +372,24 @@ class TestMapper(unittest.TestCase):
 
     def test_dwc(self):
         m = Mapper('dwc', [])
+        m.add_data(u'<dwc:scientificName>', u'Scientific Name')
+        m.add_data(u'<dwc:higherClassification>', u'Higher Classification')
+        m.add_data(u'<dwc:kingdom>', u'Kingdom')
+        m.add_data(u'<dwc:phylum>', u'Phylum')
+        m.add_data(u'<dwc:class>', u'Class')
+        m.add_data(u'<dwc:order>', u'Order')
+        m.add_data(u'<dwc:family>', u'Family')
+        m.add_data(u'<dwc:genus>', u'Genus')
         dwc = m.get_xml()
         self.assertTrue(isinstance(dwc, SimpleDarwinRecord))
+        self.assertEqual(dwc.dwc_scientific_name, u'Scientific Name')
+        self.assertEqual(dwc.dwc_higher_classification, u'Higher Classification')
+        self.assertEqual(dwc.dwc_kingdom, u'Kingdom')
+        self.assertEqual(dwc.dwc_phylum, u'Phylum')
+        self.assertEqual(dwc.dwc_class, u'Class')
+        self.assertEqual(dwc.dwc_order, u'Order')
+        self.assertEqual(dwc.dwc_family, u'Family')
+        self.assertEqual(dwc.dwc_genus, u'Genus')
 
 
 if __name__ == '__main__':
