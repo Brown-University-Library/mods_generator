@@ -149,6 +149,18 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[1].group_id, u'test2')
         self.assertEqual(mods_records[0].field_data()[4]['data'], u'2005-10-21')
 
+    def test_csv_dwc(self):
+        dh = DataHandler(os.path.join('test_files', 'data_dwc.csv'))
+        xml_records = dh.get_xml_records()
+        self.assertEqual(xml_records[0].group_id, u'test1')
+        self.assertEqual(len(xml_records), 1)
+        self.assertTrue(isinstance(xml_records[0].field_data()[0]['xml_path'], unicode))
+        self.assertTrue(isinstance(xml_records[0].field_data()[0]['data'], unicode))
+        self.assertEqual(xml_records[0].field_data()[0]['xml_path'], u'<dwc:higherClassification>')
+        self.assertEqual(xml_records[0].field_data()[0]['data'], u'higher classification')
+        self.assertEqual(xml_records[0].group_id, u'test1')
+        self.assertEqual(xml_records[0].xml_id, u'test1')
+
     def test_csv_small(self):
         dh = DataHandler(os.path.join('test_files', 'data-small.csv'))
         mods_records = dh.get_xml_records()
