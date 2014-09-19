@@ -431,7 +431,17 @@ class Mapper(object):
             self._process_mods_element(base_element, location_sections, data_vals)
 
     def _process_dwc_element(self, base_element, location_sections, data_vals):
-        if base_element['element'] == u'dwc:scientificName':
+        if base_element['element'] == u'dwc:catalogNumber':
+            self._xml_obj.dwc_catalog_number = data_vals[0][0]
+        elif base_element['element'] == u'dwc:recordedBy':
+            self._xml_obj.dwc_recorded_by = data_vals[0][0]
+        elif base_element['element'] == u'dwc:individualID':
+            self._xml_obj.dwc_individual_id = data_vals[0][0]
+        elif base_element['element'] == u'dwc:eventDate':
+            self._xml_obj.dwc_event_date = data_vals[0][0]
+        elif base_element['element'] == u'dwc:verbatimEventDate':
+            self._xml_obj.dwc_verbatim_event_date = data_vals[0][0]
+        elif base_element['element'] == u'dwc:scientificName':
             self._xml_obj.dwc_scientific_name = data_vals[0][0]
         elif base_element['element'] == u'dwc:higherClassification':
             self._xml_obj.dwc_higher_classification = data_vals[0][0]
@@ -447,6 +457,22 @@ class Mapper(object):
             self._xml_obj.dwc_family = data_vals[0][0]
         elif base_element['element'] == u'dwc:genus':
             self._xml_obj.dwc_genus = data_vals[0][0]
+        elif base_element['element'] == u'dwc:specificEpithet':
+            self._xml_obj.dwc_specific_epithet = data_vals[0][0]
+        elif base_element['element'] == u'dwc:acceptedNameUsage':
+            self._xml_obj.dwc_accepted_name_usage = data_vals[0][0]
+        elif base_element['element'] == u'dwc:scientificNameAuthorship':
+            self._xml_obj.dwc_scientific_name_authorship = data_vals[0][0]
+        elif base_element['element'] == u'dwc:county':
+            self._xml_obj.dwc_county = data_vals[0][0]
+        elif base_element['element'] == u'dwc:stateProvince':
+            self._xml_obj.dwc_state_province = data_vals[0][0]
+        elif base_element['element'] == u'dwc:country':
+            self._xml_obj.dwc_country = data_vals[0][0]
+        elif base_element['element'] == u'dwc:habitat':
+            self._xml_obj.dwc_habitat = data_vals[0][0]
+        else:
+            raise Exception('unhandled DarwinCore element: %s' % base_element['element'])
 
     def _process_mods_element(self, base_element, location_sections, data_vals):
         #handle various MODS elements
@@ -618,8 +644,8 @@ class Mapper(object):
                         related_item.title = data[0]
                 self._xml_obj.related_items.append(related_item)
         else:
-            logger.error('element not handled! %s' % base_element)
-            raise Exception('element not handled!')
+            logger.error('MODS element not handled! %s' % base_element)
+            raise Exception('MODS element not handled!')
 
     def _add_title_data(self, base_element, location_sections, data_vals):
         for data_divs in data_vals:
