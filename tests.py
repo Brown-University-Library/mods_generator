@@ -392,7 +392,8 @@ class TestMapper(unittest.TestCase):
         m.add_data(u'<dwc:order>', u'Order')
         m.add_data(u'<dwc:family>', u'Family')
         m.add_data(u'<dwc:genus>', u'Genus')
-        dwc = m.get_xml()
+        dwc_set = m.get_xml()
+        dwc = dwc_set.simple_darwin_record
         self.assertTrue(isinstance(dwc, SimpleDarwinRecord))
         self.assertEqual(dwc.dwc_scientific_name, u'Scientific Name')
         self.assertEqual(dwc.dwc_higher_classification, u'Higher Classification')

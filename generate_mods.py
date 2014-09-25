@@ -404,7 +404,8 @@ class Mapper(object):
         self._cleared_fields = {}
         self._record_type = record_type
         if record_type == 'dwc':
-            self._xml_obj = darwincore.make_simple_darwin_record()
+            self._xml_obj = darwincore.make_simple_darwin_record_set()
+            self._xml_obj.create_simple_darwin_record()
         else:
             if parent_mods:
                 self._xml_obj = parent_mods
@@ -426,51 +427,58 @@ class Mapper(object):
         #strip any empty data sections so we don't have to worry about it below
         data_vals = [self._get_data_divs(data, loc.has_sectioned_data) for data in data_vals if data]
         if self._record_type == 'dwc':
-            self._process_dwc_element(base_element, location_sections, data_vals)
+            self._process_dwc_element(
+                    self._xml_obj.simple_darwin_record, base_element, location_sections, data_vals)
         else:
             self._process_mods_element(base_element, location_sections, data_vals)
 
-    def _process_dwc_element(self, base_element, location_sections, data_vals):
-        if base_element['element'] == u'dwc:catalogNumber':
-            self._xml_obj.dwc_catalog_number = data_vals[0][0]
+    def _process_dwc_element(self, xml_obj, base_element, location_sections, data_vals):
+        if base_element['element'] == u'dc:identifier':
+            xml_obj.identifier = data_vals[0][0]
+        elif base_element['element'] == u'dc:title':
+            xml_obj.title = data_vals[0][0]
+        elif base_element['element'] == u'dwc:catalogNumber':
+            xml_obj.dwc_catalog_number = data_vals[0][0]
+        elif base_element['element'] == u'dwc:basisOfRecord':
+            xml_obj.dwc_basis_of_record = data_vals[0][0]
         elif base_element['element'] == u'dwc:recordedBy':
-            self._xml_obj.dwc_recorded_by = data_vals[0][0]
+            xml_obj.dwc_recorded_by = data_vals[0][0]
         elif base_element['element'] == u'dwc:individualID':
-            self._xml_obj.dwc_individual_id = data_vals[0][0]
+            xml_obj.dwc_individual_id = data_vals[0][0]
         elif base_element['element'] == u'dwc:eventDate':
-            self._xml_obj.dwc_event_date = data_vals[0][0]
+            xml_obj.dwc_event_date = data_vals[0][0]
         elif base_element['element'] == u'dwc:verbatimEventDate':
-            self._xml_obj.dwc_verbatim_event_date = data_vals[0][0]
+            xml_obj.dwc_verbatim_event_date = data_vals[0][0]
         elif base_element['element'] == u'dwc:scientificName':
-            self._xml_obj.dwc_scientific_name = data_vals[0][0]
+            xml_obj.dwc_scientific_name = data_vals[0][0]
         elif base_element['element'] == u'dwc:higherClassification':
-            self._xml_obj.dwc_higher_classification = data_vals[0][0]
+            xml_obj.dwc_higher_classification = data_vals[0][0]
         elif base_element['element'] == u'dwc:kingdom':
-            self._xml_obj.dwc_kingdom = data_vals[0][0]
+            xml_obj.dwc_kingdom = data_vals[0][0]
         elif base_element['element'] == u'dwc:phylum':
-            self._xml_obj.dwc_phylum = data_vals[0][0]
+            xml_obj.dwc_phylum = data_vals[0][0]
         elif base_element['element'] == u'dwc:class':
-            self._xml_obj.dwc_class = data_vals[0][0]
+            xml_obj.dwc_class = data_vals[0][0]
         elif base_element['element'] == u'dwc:order':
-            self._xml_obj.dwc_order = data_vals[0][0]
+            xml_obj.dwc_order = data_vals[0][0]
         elif base_element['element'] == u'dwc:family':
-            self._xml_obj.dwc_family = data_vals[0][0]
+            xml_obj.dwc_family = data_vals[0][0]
         elif base_element['element'] == u'dwc:genus':
-            self._xml_obj.dwc_genus = data_vals[0][0]
+            xml_obj.dwc_genus = data_vals[0][0]
         elif base_element['element'] == u'dwc:specificEpithet':
-            self._xml_obj.dwc_specific_epithet = data_vals[0][0]
+            xml_obj.dwc_specific_epithet = data_vals[0][0]
         elif base_element['element'] == u'dwc:acceptedNameUsage':
-            self._xml_obj.dwc_accepted_name_usage = data_vals[0][0]
+            xml_obj.dwc_accepted_name_usage = data_vals[0][0]
         elif base_element['element'] == u'dwc:scientificNameAuthorship':
-            self._xml_obj.dwc_scientific_name_authorship = data_vals[0][0]
+            xml_obj.dwc_scientific_name_authorship = data_vals[0][0]
         elif base_element['element'] == u'dwc:county':
-            self._xml_obj.dwc_county = data_vals[0][0]
+            xml_obj.dwc_county = data_vals[0][0]
         elif base_element['element'] == u'dwc:stateProvince':
-            self._xml_obj.dwc_state_province = data_vals[0][0]
+            xml_obj.dwc_state_province = data_vals[0][0]
         elif base_element['element'] == u'dwc:country':
-            self._xml_obj.dwc_country = data_vals[0][0]
+            xml_obj.dwc_country = data_vals[0][0]
         elif base_element['element'] == u'dwc:habitat':
-            self._xml_obj.dwc_habitat = data_vals[0][0]
+            xml_obj.dwc_habitat = data_vals[0][0]
         else:
             raise Exception('unhandled DarwinCore element: %s' % base_element['element'])
 
