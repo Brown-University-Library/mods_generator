@@ -433,52 +433,54 @@ class Mapper(object):
             self._process_mods_element(base_element, location_sections, data_vals)
 
     def _process_dwc_element(self, xml_obj, base_element, location_sections, data_vals):
-        if base_element['element'] == u'dc:identifier':
-            xml_obj.identifier = data_vals[0][0]
-        elif base_element['element'] == u'dc:title':
-            xml_obj.title = data_vals[0][0]
+        if base_element['element'] == u'dc:type':
+            xml_obj.type = data_vals[0][0]
+        elif base_element['element'] == u'dc:modified':
+            xml_obj.modified = data_vals[0][0]
         elif base_element['element'] == u'dwc:catalogNumber':
-            xml_obj.dwc_catalog_number = data_vals[0][0]
+            xml_obj.catalog_number = data_vals[0][0]
         elif base_element['element'] == u'dwc:basisOfRecord':
-            xml_obj.dwc_basis_of_record = data_vals[0][0]
+            xml_obj.basis_of_record = data_vals[0][0]
         elif base_element['element'] == u'dwc:recordedBy':
-            xml_obj.dwc_recorded_by = data_vals[0][0]
+            xml_obj.recorded_by = data_vals[0][0]
         elif base_element['element'] == u'dwc:individualID':
-            xml_obj.dwc_individual_id = data_vals[0][0]
+            xml_obj.individual_id = data_vals[0][0]
         elif base_element['element'] == u'dwc:eventDate':
-            xml_obj.dwc_event_date = data_vals[0][0]
+            xml_obj.event_date = data_vals[0][0]
         elif base_element['element'] == u'dwc:verbatimEventDate':
-            xml_obj.dwc_verbatim_event_date = data_vals[0][0]
+            xml_obj.verbatim_event_date = data_vals[0][0]
         elif base_element['element'] == u'dwc:scientificName':
-            xml_obj.dwc_scientific_name = data_vals[0][0]
+            xml_obj.scientific_name = data_vals[0][0]
         elif base_element['element'] == u'dwc:higherClassification':
-            xml_obj.dwc_higher_classification = data_vals[0][0]
+            xml_obj.higher_classification = data_vals[0][0]
         elif base_element['element'] == u'dwc:kingdom':
-            xml_obj.dwc_kingdom = data_vals[0][0]
+            xml_obj.kingdom = data_vals[0][0]
         elif base_element['element'] == u'dwc:phylum':
-            xml_obj.dwc_phylum = data_vals[0][0]
+            xml_obj.phylum = data_vals[0][0]
         elif base_element['element'] == u'dwc:class':
-            xml_obj.dwc_class = data_vals[0][0]
+            xml_obj.class_ = data_vals[0][0]
         elif base_element['element'] == u'dwc:order':
-            xml_obj.dwc_order = data_vals[0][0]
+            xml_obj.order = data_vals[0][0]
         elif base_element['element'] == u'dwc:family':
-            xml_obj.dwc_family = data_vals[0][0]
+            xml_obj.family = data_vals[0][0]
         elif base_element['element'] == u'dwc:genus':
-            xml_obj.dwc_genus = data_vals[0][0]
+            xml_obj.genus = data_vals[0][0]
         elif base_element['element'] == u'dwc:specificEpithet':
-            xml_obj.dwc_specific_epithet = data_vals[0][0]
+            xml_obj.specific_epithet = data_vals[0][0]
         elif base_element['element'] == u'dwc:acceptedNameUsage':
-            xml_obj.dwc_accepted_name_usage = data_vals[0][0]
+            xml_obj.accepted_name_usage = data_vals[0][0]
         elif base_element['element'] == u'dwc:scientificNameAuthorship':
-            xml_obj.dwc_scientific_name_authorship = data_vals[0][0]
+            xml_obj.scientific_name_authorship = data_vals[0][0]
         elif base_element['element'] == u'dwc:county':
-            xml_obj.dwc_county = data_vals[0][0]
+            xml_obj.county = data_vals[0][0]
         elif base_element['element'] == u'dwc:stateProvince':
-            xml_obj.dwc_state_province = data_vals[0][0]
+            xml_obj.state_province = data_vals[0][0]
         elif base_element['element'] == u'dwc:country':
-            xml_obj.dwc_country = data_vals[0][0]
+            xml_obj.country = data_vals[0][0]
         elif base_element['element'] == u'dwc:habitat':
-            xml_obj.dwc_habitat = data_vals[0][0]
+            xml_obj.habitat = data_vals[0][0]
+        elif base_element['element'] == u'dwc:identificationID':
+            xml_obj.identification_id = data_vals[0][0]
         else:
             raise Exception('unhandled DarwinCore element: %s' % base_element['element'])
 
