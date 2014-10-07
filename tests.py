@@ -196,10 +196,10 @@ class TestOther(unittest.TestCase):
         '''Tests to make sure we're handling dates properly.'''
         #dates with slashes
         self.assertEqual(process_text_date('5/14/2000'), '2000-05-14')
-        self.assertEqual(process_text_date('14/5/2000'), '2000-05-14')
+        self.assertEqual(process_text_date('14/5/0050'), '0050-05-14')
         #dates with dashes
         self.assertEqual(process_text_date('3-17-2013'), '2013-03-17')
-        self.assertEqual(process_text_date('17-3-2013'), '2013-03-17')
+        self.assertEqual(process_text_date('17-3-1813'), '1813-03-17')
         #ambiguous dates or invalid dates should stay as they are
         self.assertEqual(process_text_date('5/4/99'), '5/4/99') #4/5 or 5/4
         self.assertEqual(process_text_date('5/14/00'), '5/14/00')
