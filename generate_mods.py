@@ -264,7 +264,7 @@ class DataHandler(object):
             #   that as well.
             if index > (self._ctrl_row_number-1):
                 for i, v in enumerate(self._get_control_row()):
-                    if 'date' in v.lower():
+                    if 'date' in v.lower() and 'verbatim' not in v.lower():
                         if isinstance(row[i], basestring):
                             #we may have a text date, so see if we can understand it
                             # *process_text_date will return a text value of the
@@ -304,7 +304,7 @@ class DataHandler(object):
             row = self.csvData[index]
             if index > (self._ctrl_row_number-1):
                 for i, v in enumerate(self._get_control_row()):
-                    if 'date' in v.lower():
+                    if 'date' in v.lower() and 'verbatim' not in v.lower():
                         if isinstance(row[i], basestring):
                             #we may have a text date, so see if we can understand it
                             # *process_text_date will return a text value of the
@@ -411,7 +411,7 @@ def process_text_date(str_date, force_dates=False):
     if newDate.day <= 12 and newDate.day != newDate.month: 
         if force_dates:
             logger.warning('Ambiguous day/month: %s. Using it anyway.' % str_date)
-            return newDate.strftime('%Y-%m-%d')
+            return u'%04d-%02d-%02d' % (newDate.year, newDate.month, newDate.day)
         else:
             logger.warning('Ambiguous day/month: %s' % str_date)
             return str_date
