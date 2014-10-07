@@ -153,13 +153,26 @@ class TestDataHandler(unittest.TestCase):
         dh = DataHandler(os.path.join('test_files', 'data_dwc.csv'))
         xml_records = dh.get_xml_records()
         self.assertEqual(xml_records[0].group_id, u'test1')
-        self.assertEqual(len(xml_records), 1)
         self.assertTrue(isinstance(xml_records[0].field_data()[0]['xml_path'], unicode))
         self.assertTrue(isinstance(xml_records[0].field_data()[0]['data'], unicode))
-        self.assertEqual(xml_records[0].field_data()[0]['xml_path'], u'<dwc:higherClassification>')
-        self.assertEqual(xml_records[0].field_data()[0]['data'], u'higher classification')
         self.assertEqual(xml_records[0].group_id, u'test1')
         self.assertEqual(xml_records[0].xml_id, u'test1')
+        self.assertEqual(xml_records[0].field_data()[0]['xml_path'], u'<dwc:higherClassification>')
+        self.assertEqual(xml_records[0].field_data()[0]['data'], u'higher classification')
+        self.assertEqual(xml_records[0].field_data()[1]['xml_path'], u'<dwc:genus>')
+        self.assertEqual(xml_records[0].field_data()[1]['data'], u'Genus')
+        self.assertEqual(xml_records[0].field_data()[2]['xml_path'], u'<dwc:acceptedNameUsage>')
+        self.assertEqual(xml_records[0].field_data()[2]['data'], u'Genus var. variety Variety Author')
+        self.assertEqual(xml_records[0].field_data()[3]['xml_path'], u'<dwc:infraspecificEpithet>')
+        self.assertEqual(xml_records[0].field_data()[3]['data'], u'variety')
+        self.assertEqual(xml_records[0].field_data()[4]['xml_path'], u'<dwc:taxonRank>')
+        self.assertEqual(xml_records[0].field_data()[4]['data'], u'variety')
+        self.assertEqual(xml_records[1].field_data()[2]['xml_path'], u'<dwc:acceptedNameUsage>')
+        self.assertEqual(xml_records[1].field_data()[2]['data'], u'Genus2 subspecies')
+        self.assertEqual(xml_records[2].field_data()[2]['xml_path'], u'<dwc:specificEpithet>')
+        self.assertEqual(xml_records[2].field_data()[2]['data'], u'species')
+        self.assertEqual(xml_records[2].field_data()[4]['xml_path'], u'<dwc:acceptedNameUsage>')
+        self.assertEqual(xml_records[2].field_data()[4]['data'], u'Genus3 species Species Author')
 
     def test_csv_small(self):
         dh = DataHandler(os.path.join('test_files', 'data-small.csv'))
@@ -392,6 +405,7 @@ class TestMapper(unittest.TestCase):
         m.add_data(u'<dwc:order>', u'Order')
         m.add_data(u'<dwc:family>', u'Family')
         m.add_data(u'<dwc:genus>', u'Genus')
+        m.add_data(u'<dwc:infraspecificEpithet>', u'Subspecies')
         dwc_set = m.get_xml()
         dwc = dwc_set.simple_darwin_record
         self.assertTrue(isinstance(dwc, SimpleDarwinRecord))
@@ -403,6 +417,7 @@ class TestMapper(unittest.TestCase):
         self.assertEqual(dwc.order, u'Order')
         self.assertEqual(dwc.family, u'Family')
         self.assertEqual(dwc.genus, u'Genus')
+        self.assertEqual(dwc.infraspecific_epithet, u'Subspecies')
 
 
 if __name__ == '__main__':

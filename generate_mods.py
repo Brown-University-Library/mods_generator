@@ -84,7 +84,7 @@ class DataHandler(object):
         self.obj_type = obj_type
         self._force_dates = force_dates
         self._input_encoding = input_encoding
-        self._ctrl_row = ctrl_row
+        self._ctrl_row_number = ctrl_row
         try:
             self.book = xlrd.open_workbook(filename)
             self.dataset = self.book.sheet_by_index(int(sheet)-1)
@@ -127,10 +127,12 @@ class DataHandler(object):
             msg = 'no group id column (called "id", or "group id")'
             msg = msg + ' or xml id column (called "mods id" or with the xml id mapping)'
             raise Exception(msg)
-        index = self._ctrl_row
+        index = self._ctrl_row_number
         xml_records = []
         xml_ids = {}
         data_file_col = self._get_filename_col()
+        cols_to_map = self.get_cols_to_map()
+        genus_col = self._get_col_from_id_names(['<dwc:genus>'])
         for data_row in self._get_data_rows():
             index += 1
             group_id = None
@@ -158,24 +160,58 @@ class DataHandler(object):
             if group_id is None:
                 group_id = xml_id.split(u'_')[0]
             field_data = []
-            cols_to_map = self.get_cols_to_map()
             for i, val in enumerate(data_row):
                 if i in cols_to_map and len(val) > 0:
                     field_data.append({'xml_path': cols_to_map[i], 'data': val})
+            if genus_col:
+                field_data = self._dwc_dynamic_fields(genus_col, data_row, field_data)
             data_files = []
             if data_file_col is not None:
                 data_files = [df.strip() for df in data_row[data_file_col].split(u',')]
             xml_records.append(XmlRecord(group_id, xml_id, field_data, data_files))
         return xml_records
 
+    def _dwc_dynamic_fields(self, genus_col, data_row, field_data):
+        variety_col = self._get_col_from_id_names(['dwc_variety'])
+        variety_author_col = self._get_col_from_id_names(['dwc_variety_author'])
+        if variety_col and data_row[variety_col]:
+            if variety_author_col:
+                d = u'%s var. %s %s' % (data_row[genus_col], data_row[variety_col], data_row[variety_author_col])
+            else:
+                d = u'%s var. %s' % (data_row[genus_col], data_row[variety_col])
+            field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': d.strip()})
+            field_data.append({'xml_path': '<dwc:infraspecificEpithet>', 'data': data_row[variety_col]})
+            field_data.append({'xml_path': '<dwc:taxonRank>', 'data': 'variety'})
+        else:
+            subspecies_col = self._get_col_from_id_names(['dwc_subspecies'])
+            subspecies_author_col = self._get_col_from_id_names(['dwc_subspecies_author'])
+            if subspecies_col and data_row[subspecies_col]:
+                if subspecies_author_col:
+                    d = u'%s %s %s' % (data_row[genus_col], data_row[subspecies_col], data_row[subspecies_author_col])
+                else:
+                    d = u'%s %s' % (data_row[genus_col], data_row[subspecies_col])
+                field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': d.strip()})
+                field_data.append({'xml_path': '<dwc:infraspecificEpithet>', 'data': data_row[subspecies_col]})
+                field_data.append({'xml_path': '<dwc:taxonRank>', 'data': 'subspecies'})
+            else:
+                species_col = self._get_col_from_id_names(['<dwc:specificepithet>'])
+                species_author_col = self._get_col_from_id_names(['<dwc:scientificnameauthorship>'])
+                if species_col and data_row[species_col]:
+                    if species_author_col:
+                        d = u'%s %s %s' % (data_row[genus_col], data_row[species_col], data_row[species_author_col])
+                    else:
+                        d = u'%s %s' % (data_row[genus_col], data_row[species_col])
+                    field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': d.strip()})
+        return field_data
+
     def _get_data_rows(self):
         '''data rows will be all the rows after the control row'''
-        for i in xrange(self._ctrl_row+1, self._get_total_rows()+1): #xrange doesn't include the stop value
+        for i in xrange(self._ctrl_row_number+1, self._get_total_rows()+1): #xrange doesn't include the stop value
             yield self.get_row(i)
 
     def _get_control_row(self):
         '''Retrieve the row that controls XML mapping locations.'''
-        return self.get_row(self._ctrl_row)
+        return self.get_row(self._ctrl_row_number)
 
     def _get_col_from_id_names(self, id_names):
         #try control row first
@@ -226,7 +262,7 @@ class DataHandler(object):
             #In a data column that's mapped to a date field, we could find a text
             #   string that looks like a date - we might want to reformat 
             #   that as well.
-            if index > (self._ctrl_row-1):
+            if index > (self._ctrl_row_number-1):
                 for i, v in enumerate(self._get_control_row()):
                     if 'date' in v:
                         if isinstance(row[i], basestring):
@@ -266,7 +302,7 @@ class DataHandler(object):
                             row[i] = unicode('{0:%Y-%m-%d %H:%M:%S}'.format(d))
         elif self.data_type == 'csv':
             row = self.csvData[index]
-            if index > (self._ctrl_row-1):
+            if index > (self._ctrl_row_number-1):
                 for i, v in enumerate(self._get_control_row()):
                     if 'date' in v:
                         if isinstance(row[i], basestring):
@@ -467,10 +503,14 @@ class Mapper(object):
             xml_obj.genus = data_vals[0][0]
         elif base_element['element'] == u'dwc:specificEpithet':
             xml_obj.specific_epithet = data_vals[0][0]
-        elif base_element['element'] == u'dwc:acceptedNameUsage':
-            xml_obj.accepted_name_usage = data_vals[0][0]
         elif base_element['element'] == u'dwc:scientificNameAuthorship':
             xml_obj.scientific_name_authorship = data_vals[0][0]
+        elif base_element['element'] == u'dwc:infraspecificEpithet':
+            xml_obj.infraspecific_epithet = data_vals[0][0]
+        elif base_element['element'] == u'dwc:taxonRank':
+            xml_obj.taxon_rank = data_vals[0][0]
+        elif base_element['element'] == u'dwc:acceptedNameUsage':
+            xml_obj.accepted_name_usage = data_vals[0][0]
         elif base_element['element'] == u'dwc:county':
             xml_obj.county = data_vals[0][0]
         elif base_element['element'] == u'dwc:stateProvince':
