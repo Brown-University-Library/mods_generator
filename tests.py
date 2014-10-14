@@ -219,6 +219,9 @@ class TestOther(unittest.TestCase):
         self.assertEqual(process_text_date(None), None)
 
         #test override as well
+        self.assertEqual(process_text_date('05/1812'), '1812-05')
+        self.assertEqual(process_text_date('6/1912'), '1912-06')
+        self.assertEqual(process_text_date('6-1912'), '1912-06')
         self.assertEqual(process_text_date('5/4/99', True), '1999-05-04')
         self.assertEqual(process_text_date('5/17/99', True), '1999-05-17')
 

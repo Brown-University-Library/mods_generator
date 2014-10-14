@@ -353,9 +353,11 @@ def process_text_date(str_date, force_dates=False):
     #dd/dd/dddd, dd/dd/dd, d/d/dd, ...
     mmddyy = re.compile('^\d?\d/\d?\d/\d\d$')
     mmddyyyy = re.compile('^\d?\d/\d?\d/\d\d\d\d$')
+    mmyyyy = re.compile('^\d?\d/\d\d\d\d$')
     #dd-dd-dddd, dd-dd-dd, d-d-dd, ...
     mmddyy2 = re.compile('^\d?\d-\d?\d-\d\d$')
     mmddyyyy2 = re.compile('^\d?\d-\d?\d-\d\d\d\d$')
+    mmyyyy2 = re.compile('^\d?\d-\d\d\d\d$')
     format = '' #flag to remember which format we used
     if mmddyy.search(str_date):
         try:
@@ -380,6 +382,12 @@ def process_text_date(str_date, force_dates=False):
             except ValueError:
                 logger.warning('Error creating date from ' + str_date)
                 return str_date
+    elif mmyyyy.search(str_date):
+        month, year = str_date.split(u'/')
+        return u'%04d-%02d' % (int(year), int(month))
+    elif mmyyyy2.search(str_date):
+        month, year = str_date.split(u'-')
+        return u'%04d-%02d' % (int(year), int(month))
     elif mmddyy2.search(str_date):
         try:
             #try mm-dd-yy first, since that should be more common
