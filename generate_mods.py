@@ -172,36 +172,37 @@ class DataHandler(object):
         return xml_records
 
     def _dwc_dynamic_fields(self, genus_col, data_row, field_data):
+        #sets scientificNameAuthorship, acceptedNameUsage, infraspecificEpithet, and taxonRank
+        species_col = self._get_col_from_id_names(['<dwc:specificEpithet>'])
+        species_author_col = self._get_col_from_id_names(['dwc_species_author'])
+        accepted_name_usage = u'%s %s' % (data_row[genus_col], data_row[species_col])
+        infraspecific_epithet = ''
+        taxon_rank = ''
+        scientific_name_authorship = data_row[species_author_col] or ''
         variety_col = self._get_col_from_id_names(['dwc_variety'])
         variety_author_col = self._get_col_from_id_names(['dwc_variety_author'])
-        if variety_col and data_row[variety_col]:
-            if variety_author_col:
-                d = u'%s var. %s %s' % (data_row[genus_col], data_row[variety_col], data_row[variety_author_col])
-            else:
-                d = u'%s var. %s' % (data_row[genus_col], data_row[variety_col])
-            field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': d.strip()})
-            field_data.append({'xml_path': '<dwc:infraspecificEpithet>', 'data': data_row[variety_col]})
-            field_data.append({'xml_path': '<dwc:taxonRank>', 'data': 'variety'})
+        if data_row[variety_col]:
+            infraspecific_epithet = data_row[variety_col]
+            taxon_rank = 'variety'
+            taxon_rank_abbr = 'var.'
+            if data_row[variety_author_col]:
+                scientific_name_authorship = data_row[variety_author_col]
         else:
             subspecies_col = self._get_col_from_id_names(['dwc_subspecies'])
             subspecies_author_col = self._get_col_from_id_names(['dwc_subspecies_author'])
-            if subspecies_col and data_row[subspecies_col]:
-                if subspecies_author_col:
-                    d = u'%s %s %s' % (data_row[genus_col], data_row[subspecies_col], data_row[subspecies_author_col])
-                else:
-                    d = u'%s %s' % (data_row[genus_col], data_row[subspecies_col])
-                field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': d.strip()})
-                field_data.append({'xml_path': '<dwc:infraspecificEpithet>', 'data': data_row[subspecies_col]})
-                field_data.append({'xml_path': '<dwc:taxonRank>', 'data': 'subspecies'})
-            else:
-                species_col = self._get_col_from_id_names(['<dwc:specificepithet>'])
-                species_author_col = self._get_col_from_id_names(['<dwc:scientificnameauthorship>'])
-                if species_col and data_row[species_col]:
-                    if species_author_col:
-                        d = u'%s %s %s' % (data_row[genus_col], data_row[species_col], data_row[species_author_col])
-                    else:
-                        d = u'%s %s' % (data_row[genus_col], data_row[species_col])
-                    field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': d.strip()})
+            if data_row[subspecies_col]:
+                infraspecific_epithet = data_row[subspecies_col]
+                taxon_rank = 'subspecies'
+                taxon_rank_abbr = 'subsp.'
+                if data_row[subspecies_author_col]:
+                    scientific_name_authorship = data_row[subspecies_author_col]
+        if infraspecific_epithet:
+            accepted_name_usage = u'%s %s %s' % (accepted_name_usage, taxon_rank_abbr, infraspecific_epithet)
+            field_data.append({'xml_path': '<dwc:infraspecificEpithet>', 'data': data_row[variety_col]})
+            field_data.append({'xml_path': '<dwc:taxonRank>', 'data': taxon_rank})
+        accepted_name_usage = u'%s %s' % (accepted_name_usage, scientific_name_authorship)
+        field_data.append({'xml_path': '<dwc:scientificNameAuthorship>', 'data': scientific_name_authorship})
+        field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': accepted_name_usage})
         return field_data
 
     def _get_data_rows(self):
@@ -214,13 +215,14 @@ class DataHandler(object):
         return self.get_row(self._ctrl_row_number)
 
     def _get_col_from_id_names(self, id_names):
+        id_names_lower = [n.lower() for n in id_names]
         #try control row first
         for i, val in enumerate(self._get_control_row()):
-            if val.lower() in id_names:
+            if val.lower() in id_names_lower:
                 return i
         #try first row if needed
         for i, val in enumerate(self.get_row(1)):
-            if val.lower() in id_names:
+            if val.lower() in id_names_lower:
                 return i
         #we didn't find the column
         return None

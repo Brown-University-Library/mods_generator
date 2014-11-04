@@ -1,5 +1,5 @@
-Filename,Classification,Genus,OP and unit,long_caption ,desc comp,short_caption 1,short_caption 2,date_added ,23-PN Index,file name,PhotographID,Subject,Culture,GeographicLocale,ArcheologicalContext,Description,Keywords,Author,DateTaken,DateDigitized,Digitizer-Recorder,OriginalMedium,ImageManipulationsFromOriginal,PhysicalLocation,FileLocation,ThumbnailLocation,Width,Height
-group id,"<dwc:higherClassification>","<dwc:genus>","dwc_variety","dwc_variety_author","dwc_subspecies","dwc_subspecies_author","<dwc:specificEpithet>","<dwc:scientificNameAuthorship>",do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map,do not map
-test1,higher classification,Genus,variety,Variety Author,,,,,asdf,test1.png,123,Testing,Python,Zimbabwe,,,structures,Tim Smith,10/10/2005,02/27/05,,Test Note 1,None,random,,,
-test2,higher classification,Genus2,,,subspecies,,,,asdf,test1.png,123,Testing,Python,Zimbabwe,,,structures,Tim Smith,10/10/2005,02/27/05,,Test Note 1,None,random,,,
-test3,higher classification,Genus3,,,,,species,Species Author,asdf,test1.png,123,Testing,Python,Zimbabwe,,,structures,Tim Smith,10/10/2005,02/27/05,,Test Note 1,None,random,,,
+Filename,Classification,Genus,OP and unit,long_caption ,desc comp,short_caption 1,short_caption 2,date_added
+group id,"<dwc:higherClassification>","<dwc:genus>","<dwc:specificEpithet>","dwc_species_author","dwc_subspecies","dwc_subspecies_author","dwc_variety","dwc_variety_author"
+test1,higher classification,Genus,species,Species Author,,,variety,Variety Author
+test2,higher classification2,Genus2,species2,Species2 Author,subspecies,Subspecies Author,,
+test3,higher classification3,Genus3,species3,Species3 Author,,,,
