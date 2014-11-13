@@ -54,6 +54,8 @@ class XmlRecord(object):
     def __init__(self, group_id, xml_id, field_data, data_files):
         self.group_id = group_id #this is what ties parent records to children
         self.xml_id = xml_id
+        if not field_data:
+            raise Exception('no field_data for %s: %s' % (group_id, xml_id))
         if u'<dc' in field_data[0]['xml_path'] or u'<dwc' in field_data[0]['xml_path']:
             self.record_type = 'dwc'
         else:
@@ -132,6 +134,8 @@ class DataHandler(object):
         xml_ids = {}
         data_file_col = self._get_filename_col()
         cols_to_map = self.get_cols_to_map()
+        if not cols_to_map:
+            raise Exception('found no mapping information')
         genus_col = self._get_col_from_id_names(['<dwc:genus>'])
         for data_row in self._get_data_rows():
             index += 1
@@ -198,11 +202,13 @@ class DataHandler(object):
                     scientific_name_authorship = data_row[subspecies_author_col]
         if infraspecific_epithet:
             accepted_name_usage = u'%s %s %s' % (accepted_name_usage, taxon_rank_abbr, infraspecific_epithet)
-            field_data.append({'xml_path': '<dwc:infraspecificEpithet>', 'data': data_row[variety_col]})
+            field_data.append({'xml_path': '<dwc:infraspecificEpithet>', 'data': infraspecific_epithet})
             field_data.append({'xml_path': '<dwc:taxonRank>', 'data': taxon_rank})
         accepted_name_usage = u'%s %s' % (accepted_name_usage, scientific_name_authorship)
-        field_data.append({'xml_path': '<dwc:scientificNameAuthorship>', 'data': scientific_name_authorship})
-        field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': accepted_name_usage})
+        if scientific_name_authorship.strip():
+            field_data.append({'xml_path': '<dwc:scientificNameAuthorship>', 'data': scientific_name_authorship.strip()})
+        if accepted_name_usage.strip():
+            field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': accepted_name_usage.strip()})
         return field_data
 
     def _get_data_rows(self):
@@ -595,7 +601,10 @@ class Mapper(object):
                 if section[0][u'element'] == 'mods:extent':
                     self._xml_obj.physical_description.extent = data_divs[index]
                 elif section[0][u'element'] == 'mods:digitalOrigin':
-                    self._xml_obj.physical_description.digital_origin = data_divs[index]
+                    try:
+                        self._xml_obj.physical_description.digital_origin = data_divs[index]
+                    except:
+                        self._xml_obj.physical_description.digital_origin = section[0][u'data']
                 elif section[0][u'element'] == 'mods:note':
                     self._xml_obj.physical_description.note = data_divs[index]
         elif base_element['element'] == 'mods:typeOfResource':
@@ -603,6 +612,12 @@ class Mapper(object):
                 self._xml_obj.resource_type = None
                 self._cleared_fields[u'typeOfResource'] = True
             self._xml_obj.resource_type = data_vals[0][0]
+        elif base_element['element'] == 'mods:targetAudience':
+            if not self._cleared_fields.get(u'targetAudience', None):
+                self._xml_obj.resource_type = None
+                self._cleared_fields[u'targetAudience'] = True
+            ta = mods.TargetAudience(text=data_vals[0][0])
+            self._xml_obj.target_audiences.append(ta)
         elif base_element['element'] == 'mods:abstract':
             if not self._cleared_fields.get(u'abstract', None):
                 self._xml_obj.abstract = None
@@ -835,7 +850,6 @@ class Mapper(object):
                 elif section[0][u'element'] == u'mods:publisher':
                     self._xml_obj.origin_info.publisher = divs[index]
                 else:
-                    print(u'unhandled originInfo element: %s' % section)
                     raise Exception('unhandled originInfo element: %s' % section)
 
     def _set_date_attributes(self, date, attributes):
