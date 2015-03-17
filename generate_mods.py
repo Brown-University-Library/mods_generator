@@ -498,7 +498,9 @@ class Mapper(object):
             xml_obj.basis_of_record = data
         elif base_element['element'] == u'dwc:recordedBy':
             xml_obj.recorded_by = data
-        elif base_element['element'] == u'dwc:individualID':
+        elif base_element['element'] == u'dwc:recordNumber':
+            xml_obj.record_number = data
+        elif base_element['element'] == u'dwc:individualID': #deprecated in DWC
             xml_obj.individual_id = data
         elif base_element['element'] == u'dwc:eventDate':
             xml_obj.event_date = data
