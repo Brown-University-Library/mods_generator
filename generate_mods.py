@@ -475,68 +475,71 @@ class Mapper(object):
         loc = LocationParser(mods_loc)
         base_element = loc.get_base_element()
         location_sections = loc.get_sections()
-        data_vals = [data.strip() for data in data.split(self.dataSeparator)]
-        #strip any empty data sections so we don't have to worry about it below
-        data_vals = [self._get_data_divs(data, loc.has_sectioned_data) for data in data_vals if data]
+        #Darwin core can't have repeated fields like mods. Some fields are lists, so there can be multiple
+        # elements separated by '|', but otherwise the text is just put into one field (unlike mods, where
+        # multiple elements are separated into multiple fields).
         if self._record_type == 'dwc':
             self._process_dwc_element(
-                    self._xml_obj.simple_darwin_record, base_element, location_sections, data_vals)
+                    self._xml_obj.simple_darwin_record, base_element, location_sections, data.replace(u'||', u'|'))
         else:
+            data_vals = [data.strip() for data in data.split(self.dataSeparator)]
+            #strip any empty data sections so we don't have to worry about it below
+            data_vals = [self._get_data_divs(data, loc.has_sectioned_data) for data in data_vals if data]
             self._process_mods_element(base_element, location_sections, data_vals)
 
-    def _process_dwc_element(self, xml_obj, base_element, location_sections, data_vals):
+    def _process_dwc_element(self, xml_obj, base_element, location_sections, data):
         if base_element['element'] == u'dc:type':
-            xml_obj.type = data_vals[0][0]
+            xml_obj.type = data
         elif base_element['element'] == u'dc:modified':
-            xml_obj.modified = data_vals[0][0]
+            xml_obj.modified = data
         elif base_element['element'] == u'dwc:catalogNumber':
-            xml_obj.catalog_number = data_vals[0][0]
+            xml_obj.catalog_number = data
         elif base_element['element'] == u'dwc:basisOfRecord':
-            xml_obj.basis_of_record = data_vals[0][0]
+            xml_obj.basis_of_record = data
         elif base_element['element'] == u'dwc:recordedBy':
-            xml_obj.recorded_by = data_vals[0][0]
+            xml_obj.recorded_by = data
         elif base_element['element'] == u'dwc:individualID':
-            xml_obj.individual_id = data_vals[0][0]
+            xml_obj.individual_id = data
         elif base_element['element'] == u'dwc:eventDate':
-            xml_obj.event_date = data_vals[0][0]
+            xml_obj.event_date = data
         elif base_element['element'] == u'dwc:verbatimEventDate':
-            xml_obj.verbatim_event_date = data_vals[0][0]
+            xml_obj.verbatim_event_date = data
         elif base_element['element'] == u'dwc:scientificName':
-            xml_obj.scientific_name = data_vals[0][0]
+            xml_obj.scientific_name = data
         elif base_element['element'] == u'dwc:higherClassification':
-            xml_obj.higher_classification = data_vals[0][0]
+            xml_obj.higher_classification = data
         elif base_element['element'] == u'dwc:kingdom':
-            xml_obj.kingdom = data_vals[0][0]
+            xml_obj.kingdom = data
         elif base_element['element'] == u'dwc:phylum':
-            xml_obj.phylum = data_vals[0][0]
+            xml_obj.phylum = data
         elif base_element['element'] == u'dwc:class':
-            xml_obj.class_ = data_vals[0][0]
+            xml_obj.class_ = data
         elif base_element['element'] == u'dwc:order':
-            xml_obj.order = data_vals[0][0]
+            xml_obj.order = data
         elif base_element['element'] == u'dwc:family':
-            xml_obj.family = data_vals[0][0]
+            xml_obj.family = data
         elif base_element['element'] == u'dwc:genus':
-            xml_obj.genus = data_vals[0][0]
+            xml_obj.genus = data
         elif base_element['element'] == u'dwc:specificEpithet':
-            xml_obj.specific_epithet = data_vals[0][0]
+            xml_obj.specific_epithet = data
         elif base_element['element'] == u'dwc:scientificNameAuthorship':
-            xml_obj.scientific_name_authorship = data_vals[0][0]
+            xml_obj.scientific_name_authorship = data
         elif base_element['element'] == u'dwc:infraspecificEpithet':
-            xml_obj.infraspecific_epithet = data_vals[0][0]
+            xml_obj.infraspecific_epithet = data
         elif base_element['element'] == u'dwc:taxonRank':
-            xml_obj.taxon_rank = data_vals[0][0]
+            xml_obj.taxon_rank = data
         elif base_element['element'] == u'dwc:acceptedNameUsage':
-            xml_obj.accepted_name_usage = data_vals[0][0]
+            xml_obj.accepted_name_usage = data
         elif base_element['element'] == u'dwc:county':
-            xml_obj.county = data_vals[0][0]
+            xml_obj.county = data
         elif base_element['element'] == u'dwc:stateProvince':
-            xml_obj.state_province = data_vals[0][0]
+            xml_obj.state_province = data
         elif base_element['element'] == u'dwc:country':
-            xml_obj.country = data_vals[0][0]
+            xml_obj.country = data
         elif base_element['element'] == u'dwc:habitat':
-            xml_obj.habitat = data_vals[0][0]
+            xml_obj.habitat = data
         elif base_element['element'] == u'dwc:identificationID':
-            xml_obj.identification_id = data_vals[0][0]
+            xml_obj.identification_id = data
         else:
             raise Exception('unhandled DarwinCore element: %s' % base_element['element'])
 
