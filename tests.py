@@ -423,6 +423,8 @@ class TestMapper(unittest.TestCase):
         m.add_data(u'<dwc:infraspecificEpithet>', u'Subspecies')
         m.add_data(u'<dwc:recordedBy>', u'Sci Entist || Phy Sycist')
         m.add_data(u'<dwc:recordNumber>', u'2')
+        m.add_data(u'<dwc:municipality>', u'Muni')
+        m.add_data(u'<dwc:locality>', u'locality')
         dwc_set = m.get_xml()
         dwc = dwc_set.simple_darwin_record
         self.assertTrue(isinstance(dwc, SimpleDarwinRecord))
@@ -437,6 +439,7 @@ class TestMapper(unittest.TestCase):
         self.assertEqual(dwc.infraspecific_epithet, u'Subspecies')
         self.assertEqual(dwc.recorded_by, u'Sci Entist | Phy Sycist')
         self.assertEqual(dwc.record_number, u'2')
+        self.assertEqual(dwc.municipality, u'Muni')
 
 
 if __name__ == '__main__':
