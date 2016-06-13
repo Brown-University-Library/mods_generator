@@ -532,6 +532,10 @@ class Mapper(object):
             xml_obj.taxon_rank = data
         elif base_element['element'] == u'dwc:acceptedNameUsage':
             xml_obj.accepted_name_usage = data
+        elif base_element['element'] == u'dwc:locality':
+            xml_obj.locality = data
+        elif base_element['element'] == u'dwc:municipality':
+            xml_obj.municipality = data
         elif base_element['element'] == u'dwc:county':
             xml_obj.county = data
         elif base_element['element'] == u'dwc:stateProvince':
