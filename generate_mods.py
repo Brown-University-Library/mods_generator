@@ -696,7 +696,7 @@ class Mapper(object):
                             loc.url = div
                     elif section[0]['element'] == u'mods:physicalLocation':
                         if section[0]['data']:
-                            loc.physical = section[0]['data']
+                            loc.physical = mods.PhysicalLocation(text=section[0]['data'])
                         else:
                             loc.physical = div
                     elif section[0]['element'] == u'mods:holdingSimple':
