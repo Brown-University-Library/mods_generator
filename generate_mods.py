@@ -687,7 +687,7 @@ class Mapper(object):
                         if section[0]['data']:
                             loc.physical = mods.PhysicalLocation(text=section[0]['data'])
                         else:
-                            loc.physical = div
+                            loc.physical = mods.PhysicalLocation(text=div)
                     elif section[0]['element'] == u'mods:holdingSimple':
                         hs = mods.HoldingSimple()
                         if section[1]['element'] == u'mods:copyInformation':
@@ -971,18 +971,19 @@ class LocationParser(object):
         return attributes
 
 
-def process(dataHandler, copy_parent_to_children=False):
+def process(dataHandler, xml_files_dir, copy_parent_to_children=False):
     '''Function to go through all the data and process it.'''
     #get dicts of columns that should be mapped & where they go in MODS
     index = 1
     for record in dataHandler.get_xml_records():
-        filename = u'%s.%s' % (record.xml_id, record.record_type)
-        if os.path.exists(os.path.join(XML_FILES_DIR, filename)):
+        filename = '%s.%s' % (record.xml_id, record.record_type)
+        full_path = os.path.join(xml_files_dir, filename)
+        if os.path.exists(full_path):
             raise Exception('%s already exists!' % filename)
         logger.info('Processing row %d to %s.' % (index, filename))
         if copy_parent_to_children:
             #load parent mods object if desired (& it exists)
-            parent_filename = os.path.join(XML_FILES_DIR, u'%s.%s' % (record.group_id, record.record_type))
+            parent_filename = os.path.join(xml_files_dir, u'%s.%s' % (record.group_id, record.record_type))
             parent_xml = None
             if os.path.exists(parent_filename):
                 parent_xml = load_xmlobject_from_file(parent_filename, mods.Mods)
@@ -990,9 +991,9 @@ def process(dataHandler, copy_parent_to_children=False):
         else:
             mapper = Mapper(record.record_type, record.field_data())
         xml_obj = mapper.get_xml()
-        xml_data = xml_obj.serializeDocument(pretty=True).decode('utf-8')
-        with open(os.path.join(XML_FILES_DIR, filename), 'w') as f:
-            f.write(xml_data.encode('utf8'))
+        xml_bytes = xml_obj.serializeDocument(pretty=True) #serializes as UTF-8
+        with open(full_path, 'wb') as f:
+            f.write(xml_bytes)
         index = index + 1
 
 
@@ -1028,6 +1029,6 @@ if __name__ == '__main__':
             raise
     #set up data handler & process data
     dataHandler = DataHandler(args[0], options.in_enc, int(options.sheet), int(options.row), options.force_dates, options.type)
-    process(dataHandler, options.copy_parent_to_children)
+    process(dataHandler, xml_files_dir=XML_FILES_DIR, copy_parent_to_children=options.copy_parent_to_children)
     sys.exit()
 
