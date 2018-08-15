@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-import unittest
 import os
+import tempfile
+import unittest
 
-from generate_mods import LocationParser, DataHandler, Mapper, process_text_date
 from bdrxml.mods import Mods
 from bdrxml.darwincore import SimpleDarwinRecord
+from generate_mods import LocationParser, DataHandler, Mapper, process_text_date, process
+
 
 class TestLocationParser(unittest.TestCase):
 
@@ -84,6 +86,7 @@ class TestLocationParser(unittest.TestCase):
             return
         #if we got here, no Exception was raised, so fail the test
         self.fail('Did not raise Exception on bad input!')
+
 
 class TestDataHandler(unittest.TestCase):
     '''added some non-ascii characters to the files to make sure
@@ -235,6 +238,13 @@ class TestOther(unittest.TestCase):
         self.assertEqual(process_text_date('6-1912'), '1912-06')
         self.assertEqual(process_text_date('5/4/99', True), '1999-05-04')
         self.assertEqual(process_text_date('5/17/99', True), '1999-05-17')
+
+    def test_process(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dh = DataHandler(os.path.join('test_files', 'data.xls'))
+            process(dh, xml_files_dir=tmp)
+            self.assertTrue(os.path.exists(os.path.join(tmp, 'test1.mods')))
+
 
 class TestMapper(unittest.TestCase):
     '''Test Mapper class.'''
