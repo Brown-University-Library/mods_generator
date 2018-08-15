@@ -72,8 +72,8 @@ class DataHandler(object):
     '''Handle interacting with the data.
     
     Use 1-based values for sheets or rows in public functions.
-    There should be no data in str objects - they should all be unicode,
-    which is what xlrd uses, and we convert all CSV data to unicode objects
+    There should be no data in byte objects - they should all be str,
+    which is what xlrd uses, and we convert all CSV data to str objects
     as well.
     '''
     def __init__(self, filename, input_encoding='utf-8', sheet=1, ctrl_row=2, force_dates=False, obj_type='parent'):
@@ -94,32 +94,23 @@ class DataHandler(object):
         except xlrd.XLRDError as xerr:
             #if it's not excel, try csv
             try:
-                csvFile = codecs.open(filename, 'r', self._input_encoding)
-                #read some test data to pass to sniffer for checking the dialect
-                data = csvFile.read(4096) #data is unicode object
-                csvFile.seek(0)
-                #Sniffer needs data encoded in ascii (just drop non-ascii characters for now)
-                dataAscii = data.encode('ascii', 'ignore')
-                dialect = csv.Sniffer().sniff(dataAscii)
-                #set doublequote to true because that's the default and the Sniffer doesn't
-                #   seem to pick it up right
-                dialect.doublequote = True
-                self.data_type = 'csv'
-                #CSV module doesn't handle unicode correctly, so temporarily
-                #   encode data as UTF-8, which it can handle.
-                csvReader = csv.reader(self._utf_8_encoder(csvFile), dialect)
-                #self.csvData will be a list of lists of the row data
-                self.csvData = []
-                for row in csvReader:
-                    if len(row) > 0:
-                        #convert all the data back to unicode since we're done w/ CSV module
-                        row = [unicode(cell, 'utf-8') for cell in row]
-                        self.csvData.append(row)
-                csvFile.close()
+                with open(filename, 'rt', encoding=self._input_encoding) as csvFile:
+                    #read some test data to pass to sniffer for checking the dialect
+                    data = csvFile.read(4096)
+                    csvFile.seek(0)
+                    dialect = csv.Sniffer().sniff(data)
+                    #set doublequote to true because that's the default and the Sniffer doesn't
+                    #   seem to pick it up right
+                    dialect.doublequote = True
+                    self.data_type = 'csv'
+                    csvReader = csv.reader(csvFile, dialect)
+                    self.csvData = []
+                    for row in csvReader:
+                        if len(row) > 0:
+                            self.csvData.append(row)
             except Exception as e:
-                logger.error(u'%s' % e)
+                logger.error(str(e))
                 logger.error('Could not recognize file format. Exiting.')
-                csvFile.close()
                 sys.exit(1)
 
     def get_xml_records(self):
@@ -213,7 +204,7 @@ class DataHandler(object):
 
     def _get_data_rows(self):
         '''data rows will be all the rows after the control row'''
-        for i in xrange(self._ctrl_row_number+1, self._get_total_rows()+1): #xrange doesn't include the stop value
+        for i in range(self._ctrl_row_number+1, self._get_total_rows()+1):
             yield self.get_row(i)
 
     def _get_control_row(self):
@@ -262,7 +253,7 @@ class DataHandler(object):
         return cols
 
     def get_row(self, index):
-        '''Retrieve a list of unicode values (index is 1-based like excel)'''
+        '''Retrieve a list of str values (index is 1-based like excel)'''
         #subtract 1 from index so that it's 0-based like xlrd and csvData list
         index = index - 1
         if self.data_type == 'xlrd':
@@ -273,7 +264,7 @@ class DataHandler(object):
             if index > (self._ctrl_row_number-1):
                 for i, v in enumerate(self._get_control_row()):
                     if 'date' in v.lower() and 'verbatim' not in v.lower():
-                        if isinstance(row[i], basestring):
+                        if isinstance(row[i], str):
                             #we may have a text date, so see if we can understand it
                             # *process_text_date will return a text value of the
                             #   reformatted date if possible, else the original value
@@ -286,10 +277,10 @@ class DataHandler(object):
                     #http://stackoverflow.com/questions/2739989/reading-numeric-excel-data-as-text-using-xlrd-in-python
                     #if cell is XL_CELL_NUMBER
                     if self.dataset.cell_type(index, i) == 2 and int(v) == v:
-                        #convert data into int & then unicode
+                        #convert data into int & then str
                         #Note: if a number was displayed as xxxx.0 in Excel, we
                         #   would lose the .0 here
-                        row[i] = unicode(int(v))
+                        row[i] = str(int(v))
                     #Dates are also stored as floats in Excel, so we have to do
                     #   some extra processing to get a datetime object
                     #if we have an XL_CELL_DATE
@@ -301,41 +292,35 @@ class DataHandler(object):
                         d = datetime.datetime(*tup)
                         if tup[0] == 0 and tup[1] == 0 and tup[2] == 0:
                             #just time, no date
-                            row[i] = unicode('{0:%H:%M:%S}'.format(d))
+                            row[i] = '{0:%H:%M:%S}'.format(d)
                         elif tup[3] == 0 and tup[4] == 0 and tup[5] == 0:
                             #just date, no time
-                            row[i] = unicode('{0:%Y-%m-%d}'.format(d))
+                            row[i] = '{0:%Y-%m-%d}'.format(d)
                         else:
                             #assume full date/time
-                            row[i] = unicode('{0:%Y-%m-%d %H:%M:%S}'.format(d))
+                            row[i] = '{0:%Y-%m-%d %H:%M:%S}'.format(d)
         elif self.data_type == 'csv':
             row = self.csvData[index]
             if index > (self._ctrl_row_number-1):
                 for i, v in enumerate(self._get_control_row()):
                     if 'date' in v.lower() and 'verbatim' not in v.lower():
-                        if isinstance(row[i], basestring):
+                        if isinstance(row[i], str):
                             #we may have a text date, so see if we can understand it
                             # *process_text_date will return a text value of the
                             #   reformatted date if possible, else the original value
                             row[i] = process_text_date(row[i], self._force_dates)
         #this final loop should be unnecessary, but it's a final check to
-        #   make sure everything is unicode.
+        #   make sure everything is str.
         for i, v in enumerate(row):
-            if not isinstance(v, unicode):
+            if not isinstance(v, str):
                 try:
-                    row[i] = unicode(v, self._input_encoding)
+                    row[i] = v.decode(self._input_encoding)
                 #if v isn't a string, we might get this error, so try without
                 #   the encoding
                 except TypeError:
-                    row[i] = unicode(v)
+                    row[i] = str(v)
         #finally return the row
         return row
-
-    def _utf_8_encoder(self, unicode_csv_data):
-        '''From docs.python.org/2.6/library/csv.html
-        CSV module doesn't handle unicode objects, but should handle UTF-8 data.'''
-        for line in unicode_csv_data:
-            yield line.encode('utf-8')
 
     def _get_total_rows(self):
         '''Get total number of rows in the dataset.'''
@@ -353,7 +338,7 @@ def process_text_date(str_date, force_dates=False):
     Note: in xx/xx/xx or xx-xx-xx, we assume that year is last, not first.'''
     #do some checking on str_date - if it's not what we're looking for,
     #   just return str_date without changing anything
-    if not isinstance(str_date, basestring):
+    if not isinstance(str_date, str):
         return str_date
     if len(str_date) == 0:
         return str_date
@@ -1005,9 +990,9 @@ def process(dataHandler, copy_parent_to_children=False):
         else:
             mapper = Mapper(record.record_type, record.field_data())
         xml_obj = mapper.get_xml()
-        xml_data = unicode(xml_obj.serializeDocument(pretty=True), 'utf-8')
-        with codecs.open(os.path.join(XML_FILES_DIR, filename), 'w', 'utf-8') as f:
-            f.write(xml_data)
+        xml_data = xml_obj.serializeDocument(pretty=True).decode('utf-8')
+        with open(os.path.join(XML_FILES_DIR, filename), 'w') as f:
+            f.write(xml_data.encode('utf8'))
         index = index + 1
 
 
