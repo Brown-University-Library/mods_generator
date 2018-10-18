@@ -5,7 +5,7 @@ import unittest
 
 from bdrxml.mods import Mods
 from bdrxml.darwincore import SimpleDarwinRecord
-from generate_mods import LocationParser, DataHandler, Mapper, process_text_date, process
+from mods_generator import LocationParser, DataHandler, Mapper, process_text_date, process
 
 
 class TestLocationParser(unittest.TestCase):

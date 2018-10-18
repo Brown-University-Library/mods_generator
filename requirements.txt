@@ -1,4 +1,3 @@
 git+https://github.com/Brown-University-Library/bdrxml
-eulxml
-ply==3.8
 xlrd
+
