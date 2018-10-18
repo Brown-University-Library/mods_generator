@@ -6,7 +6,7 @@ setup(name='mods_generator',
     install_requires=[
         'bdrxml==0.9',
         'xlrd==1.1.0',
-    ]
+    ],
     dependency_links=[
         'https://github.com/Brown-University-Library/bdrxml/archive/v0.9.zip#egg=bdrxml-0.9',
     ],
