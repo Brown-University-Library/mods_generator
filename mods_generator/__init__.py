@@ -920,6 +920,8 @@ class LocationParser(object):
 def process(file_name, xml_files_dir, sheet=1, control_row=2, force_dates=False,
         object_type='parent', input_encoding='utf8', copy_parent_to_children=False):
     '''Function to go through all the data and process it.'''
+    #make sure we have a directory to put the mods files in
+    os.makedirs(xml_files_dir, exist_ok=True)
     data_handler = DataHandler(file_name, sheet=sheet, control_row=control_row, force_dates=force_dates,
             object_type=object_type, input_encoding=input_encoding)
     index = 1

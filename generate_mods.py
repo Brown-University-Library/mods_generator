@@ -45,15 +45,6 @@ if __name__ == '__main__':
                     action='store', dest='in_enc', default='utf-8',
                     help='specify the input encoding for CSV files (default is UTF-8)')
     args = parser.parse_args()
-    #make sure we have a directory to put the mods files in
-    try:
-        os.makedirs(XML_FILES_DIR)
-    except OSError as err:
-        if os.path.isdir(XML_FILES_DIR):
-            pass
-        else:
-            #dir creation error - re-raise it
-            raise
     process(file_name=args.file_name, xml_files_dir=XML_FILES_DIR, sheet=int(args.sheet),
             control_row=int(args.row), force_dates=args.force_dates, object_type=args.type, input_encoding=args.in_enc,
             copy_parent_to_children=args.copy_parent_to_children)
