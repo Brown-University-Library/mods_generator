@@ -53,8 +53,7 @@ if __name__ == '__main__':
         else:
             #dir creation error - re-raise it
             raise
-    #set up data handler & process data
-    dataHandler = DataHandler(args[0], options.in_enc, int(options.sheet), int(options.row), options.force_dates, options.type)
-    process(dataHandler, xml_files_dir=XML_FILES_DIR, copy_parent_to_children=options.copy_parent_to_children)
+    process(file_name=args[0], xml_files_dir=XML_FILES_DIR, sheet=int(args.sheet),
+            control_row=int(args.row), force_dates=args.force_dates, copy_parent_to_children=options.copy_parent_to_children)
     sys.exit()
 

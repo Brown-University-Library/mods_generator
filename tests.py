@@ -119,7 +119,7 @@ class TestDataHandler(unittest.TestCase):
         self.assertEqual(mods_records[0].field_data()[5]['data'], '2008-10-21')
 
     def test_xlsx(self):
-        dh = DataHandler(os.path.join('test_files', 'data.xlsx'), obj_type='child')
+        dh = DataHandler(os.path.join('test_files', 'data.xlsx'), object_type='child')
         mods_records = dh.get_xml_records()
         self.assertEqual(mods_records[0].group_id, 'test1')
         self.assertEqual(len(mods_records), 2)
@@ -241,8 +241,8 @@ class TestOther(unittest.TestCase):
 
     def test_process(self):
         with tempfile.TemporaryDirectory() as tmp:
-            dh = DataHandler(os.path.join('test_files', 'data.xls'))
-            process(dh, xml_files_dir=tmp)
+            file_path = os.path.join('test_files', 'data.xls')
+            process(file_name=file_path, xml_files_dir=tmp)
             self.assertTrue(os.path.exists(os.path.join(tmp, 'test1.mods')))
 
 

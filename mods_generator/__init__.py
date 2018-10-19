@@ -35,17 +35,17 @@ class DataHandler(object):
     which is what xlrd uses, and we convert all CSV data to str objects
     as well.
     '''
-    def __init__(self, filename, input_encoding='utf-8', sheet=1, ctrl_row=2, force_dates=False, obj_type='parent'):
+    def __init__(self, filename, input_encoding='utf-8', sheet=1, control_row=2, force_dates=False, object_type='parent'):
         '''Open file and get data from correct sheet.
         
         First, try opening the file as an excel spreadsheet.
         If that fails, try opening it as a CSV file.
         Exit with error if CSV doesn't work.
         '''
-        self.obj_type = obj_type
+        self.obj_type = object_type
         self._force_dates = force_dates
         self._input_encoding = input_encoding
-        self._ctrl_row_number = ctrl_row
+        self._ctrl_row_number = control_row
         try:
             self.book = xlrd.open_workbook(filename)
             self.dataset = self.book.sheet_by_index(int(sheet)-1)
@@ -917,11 +917,11 @@ class LocationParser(object):
         return attributes
 
 
-def process(dataHandler, xml_files_dir, copy_parent_to_children=False):
+def process(file_name, xml_files_dir, sheet=1, control_row=2, force_dates=False, object_type='parent', copy_parent_to_children=False):
     '''Function to go through all the data and process it.'''
-    #get dicts of columns that should be mapped & where they go in MODS
+    data_handler = DataHandler(file_name, sheet=sheet, control_row=control_row, force_dates=force_dates, object_type=object_type)
     index = 1
-    for record in dataHandler.get_xml_records():
+    for record in data_handler.get_xml_records():
         filename = '%s.%s' % (record.xml_id, record.record_type)
         full_path = os.path.join(xml_files_dir, filename)
         if os.path.exists(full_path):
