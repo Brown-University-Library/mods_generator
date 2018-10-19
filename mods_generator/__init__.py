@@ -917,9 +917,11 @@ class LocationParser(object):
         return attributes
 
 
-def process(file_name, xml_files_dir, sheet=1, control_row=2, force_dates=False, object_type='parent', copy_parent_to_children=False):
+def process(file_name, xml_files_dir, sheet=1, control_row=2, force_dates=False,
+        object_type='parent', input_encoding='utf8', copy_parent_to_children=False):
     '''Function to go through all the data and process it.'''
-    data_handler = DataHandler(file_name, sheet=sheet, control_row=control_row, force_dates=force_dates, object_type=object_type)
+    data_handler = DataHandler(file_name, sheet=sheet, control_row=control_row, force_dates=force_dates,
+            object_type=object_type, input_encoding=input_encoding)
     index = 1
     for record in data_handler.get_xml_records():
         filename = '%s.%s' % (record.xml_id, record.record_type)
