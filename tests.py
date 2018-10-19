@@ -5,7 +5,7 @@ import unittest
 
 from bdrxml.mods import Mods
 from bdrxml.darwincore import SimpleDarwinRecord
-from generate_mods import LocationParser, DataHandler, Mapper, process_text_date, process
+from mods_generator import LocationParser, DataHandler, Mapper, process_text_date, process
 
 
 class TestLocationParser(unittest.TestCase):
@@ -250,7 +250,7 @@ class TestMapper(unittest.TestCase):
     '''Test Mapper class.'''
 
     FULL_MODS = '''<?xml version='1.0' encoding='UTF-8'?>
-<mods:mods xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-4.xsd" ID="mods000">
+<mods:mods xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-7.xsd" ID="mods000">
   <mods:physicalDescription>
     <mods:extent>1 video file</mods:extent>
     <mods:digitalOrigin>reformatted digital</mods:digitalOrigin>
