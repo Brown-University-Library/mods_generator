@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import io
 import os
 import tempfile
 import unittest
@@ -263,6 +264,12 @@ class TestOther(unittest.TestCase):
             with open(file_path, 'rb') as f:
                 process(spreadsheet=f, xml_files_dir=tmp)
             self.assertTrue(os.path.exists(os.path.join(tmp, 'test1.mods.xml')))
+
+    def test_process_minimal_spreadsheet(self):
+        csv_info = 'mods id,<mods:note>\n1,asdf\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp, control_row=1)
+            self.assertTrue(os.path.exists(os.path.join(tmp, '1.mods.xml')))
 
 
 class TestMapper(unittest.TestCase):
