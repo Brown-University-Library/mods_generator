@@ -941,7 +941,7 @@ def process(spreadsheet, xml_files_dir, sheet=1, control_row=2, force_dates=Fals
             object_type=object_type, input_encoding=input_encoding)
     index = 1
     for record in data_handler.get_xml_records():
-        filename = '%s.%s' % (record.xml_id, record.record_type)
+        filename = '%s.%s.xml' % (record.xml_id, record.record_type)
         full_path = os.path.join(xml_files_dir, filename)
         if os.path.exists(full_path):
             raise Exception('%s already exists!' % filename)
