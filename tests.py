@@ -242,15 +242,27 @@ class TestOther(unittest.TestCase):
     def test_process(self):
         with tempfile.TemporaryDirectory() as tmp:
             file_path = os.path.join('test_files', 'data.xls')
-            process(file_name=file_path, xml_files_dir=tmp)
+            process(spreadsheet=file_path, xml_files_dir=tmp)
             self.assertTrue(os.path.exists(os.path.join(tmp, 'test1.mods')))
 
     def test_process_no_xml_files_dir(self):
         with tempfile.TemporaryDirectory() as tmp:
             file_path = os.path.join('test_files', 'data.xls')
             xml_files_dir = os.path.join(tmp, 'xml_files')
-            process(file_name=file_path, xml_files_dir=xml_files_dir)
+            process(spreadsheet=file_path, xml_files_dir=xml_files_dir)
             self.assertTrue(os.path.exists(os.path.join(xml_files_dir, 'test1.mods')))
+
+    def test_process_spreadsheet_file_obj(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file_path = os.path.join('test_files', 'data.xls')
+            with open(file_path, 'rb') as f:
+                process(spreadsheet=f, xml_files_dir=tmp)
+            self.assertTrue(os.path.exists(os.path.join(tmp, 'test1.mods')))
+        with tempfile.TemporaryDirectory() as tmp:
+            file_path = os.path.join('test_files', 'data.csv')
+            with open(file_path, 'rb') as f:
+                process(spreadsheet=f, xml_files_dir=tmp)
+            self.assertTrue(os.path.exists(os.path.join(tmp, 'test1.mods')))
 
 
 class TestMapper(unittest.TestCase):
