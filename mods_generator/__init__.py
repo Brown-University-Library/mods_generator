@@ -1,7 +1,9 @@
 import csv
 import datetime
+import io
 import os
 import re
+import tempfile
 
 import xlrd
 from eulxml.xmlmap import load_xmlobject_from_file
@@ -35,40 +37,53 @@ class DataHandler(object):
     which is what xlrd uses, and we convert all CSV data to str objects
     as well.
     '''
-    def __init__(self, filename, input_encoding='utf-8', sheet=1, ctrl_row=2, force_dates=False, obj_type='parent'):
+    def __init__(self, spreadsheet, input_encoding='utf-8', sheet=1, control_row=2, force_dates=False, object_type='parent'):
         '''Open file and get data from correct sheet.
         
         First, try opening the file as an excel spreadsheet.
         If that fails, try opening it as a CSV file.
         Exit with error if CSV doesn't work.
         '''
-        self.obj_type = obj_type
+        self.obj_type = object_type
         self._force_dates = force_dates
         self._input_encoding = input_encoding
-        self._ctrl_row_number = ctrl_row
+        self._ctrl_row_number = control_row
         try:
-            self.book = xlrd.open_workbook(filename)
+            try:
+                self.book = xlrd.open_workbook(spreadsheet)
+            except TypeError:
+                self.book = xlrd.open_workbook(file_contents=spreadsheet.read())
             self.dataset = self.book.sheet_by_index(int(sheet)-1)
             self.data_type = 'xlrd'
         except xlrd.XLRDError as xerr:
             #if it's not excel, try csv
             try:
-                with open(filename, 'rt', encoding=self._input_encoding) as csvFile:
-                    #read some test data to pass to sniffer for checking the dialect
-                    data = csvFile.read(4096)
-                    csvFile.seek(0)
-                    dialect = csv.Sniffer().sniff(data)
-                    #set doublequote to true because that's the default and the Sniffer doesn't
-                    #   seem to pick it up right
-                    dialect.doublequote = True
-                    self.data_type = 'csv'
-                    csvReader = csv.reader(csvFile, dialect)
-                    self.csvData = []
-                    for row in csvReader:
-                        if len(row) > 0:
-                            self.csvData.append(row)
+                with open(spreadsheet, 'rt', encoding=self._input_encoding) as csv_file:
+                    self._process_csv_file(csv_file)
+            except TypeError:
+                #got a file object, which might have been opened in binary format
+                spreadsheet.seek(0)
+                spreadsheet_bytes = spreadsheet.read()
+                spreadsheet_text = spreadsheet_bytes.decode(self._input_encoding)
+                spreadsheet_file = io.StringIO(spreadsheet_text)
+                self._process_csv_file(spreadsheet_file)
             except Exception as e:
                 raise Exception('Could not recognize file format.')
+
+    def _process_csv_file(self, csv_file):
+        #read some test data to pass to sniffer for checking the dialect
+        data = csv_file.read(4096)
+        csv_file.seek(0)
+        dialect = csv.Sniffer().sniff(data)
+        #set doublequote to true because that's the default and the Sniffer doesn't
+        #   seem to pick it up right
+        dialect.doublequote = True
+        self.data_type = 'csv'
+        csv_reader = csv.reader(csv_file, dialect)
+        self.csvData = []
+        for row in csv_reader:
+            if len(row) > 0:
+                self.csvData.append(row)
 
     def get_xml_records(self):
         '''skips rows without a group id or xml id'''
@@ -917,11 +932,15 @@ class LocationParser(object):
         return attributes
 
 
-def process(dataHandler, xml_files_dir, copy_parent_to_children=False):
+def process(spreadsheet, xml_files_dir, sheet=1, control_row=2, force_dates=False,
+        object_type='parent', input_encoding='utf8', copy_parent_to_children=False):
     '''Function to go through all the data and process it.'''
-    #get dicts of columns that should be mapped & where they go in MODS
+    #make sure we have a directory to put the mods files in
+    os.makedirs(xml_files_dir, exist_ok=True)
+    data_handler = DataHandler(spreadsheet, sheet=sheet, control_row=control_row, force_dates=force_dates,
+            object_type=object_type, input_encoding=input_encoding)
     index = 1
-    for record in dataHandler.get_xml_records():
+    for record in data_handler.get_xml_records():
         filename = '%s.%s' % (record.xml_id, record.record_type)
         full_path = os.path.join(xml_files_dir, filename)
         if os.path.exists(full_path):
