@@ -3,6 +3,8 @@ mods_generator
 
 Tool for generating MODS files from datasets. Takes an spreadsheet or cvs file with MODS mapping information and generates a MODS file for each record.
 
+[![Build Status](https://travis-ci.com/Brown-University-Library/mods_generator.svg?branch=master)](https://travis-ci.com/Brown-University-Library/mods_generator)
+
 License
 =======
 
