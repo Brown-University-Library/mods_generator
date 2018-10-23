@@ -6,7 +6,7 @@ import unittest
 
 from bdrxml.mods import Mods
 from bdrxml.darwincore import SimpleDarwinRecord
-from mods_generator import ControlRowError, ModsMappingError, ModsMappingParser, DataHandler, Mapper, process_text_date, process
+from mods_generator import ControlRowError, ModsMappingError, DataError, ModsMappingParser, DataHandler, Mapper, process_text_date, process
 
 
 class TestModsMappingParser(unittest.TestCase):
@@ -265,6 +265,18 @@ class TestOther(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp, control_row=1)
             self.assertTrue(os.path.exists(os.path.join(tmp, '1.mods.xml')))
+
+    def test_process_record_missing_data(self):
+        csv_info = 'ID,<mods:note>\n1,asdf\n2,\n3,jkl'
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(DataError):
+                process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp)
+
+    def test_process_duplicate_ids(self):
+        csv_info = 'ID,<mods:note>\n1,asdf\n1,jkl\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(DataError):
+                process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp)
 
 
 class TestControlRow(unittest.TestCase):

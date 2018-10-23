@@ -16,6 +16,9 @@ class ControlRowError(RuntimeError):
 class ModsMappingError(RuntimeError):
     pass
 
+class DataError(RuntimeError):
+    pass
+
 
 class XmlRecord:
 
@@ -23,7 +26,7 @@ class XmlRecord:
         self.group_id = group_id #this is what ties parent records to children
         self.xml_id = xml_id
         if not field_data:
-            raise Exception('no metadata for %s: %s' % (group_id, xml_id))
+            raise DataError('no metadata for %s: %s' % (group_id, xml_id))
         if u'<dc' in field_data[0]['xml_path'] or u'<dwc' in field_data[0]['xml_path']:
             self.record_type = 'dwc'
         else:
@@ -74,8 +77,8 @@ class DataHandler:
                 spreadsheet_text = spreadsheet_bytes.decode(self._input_encoding)
                 spreadsheet_file = io.StringIO(spreadsheet_text)
                 self._process_csv_file(spreadsheet_file)
-            except Exception as e:
-                raise Exception('Could not recognize file format.')
+            except RuntimeError:
+                raise RuntimeError('Could not recognize file format - must be .xls, .xlsx, or .csv.')
 
     def _process_csv_file(self, csv_file):
         #read some test data to pass to sniffer for checking the dialect
@@ -486,7 +489,7 @@ class Mapper(object):
         elif base_element['element'] == u'dwc:identificationID':
             xml_obj.identification_id = data
         else:
-            raise Exception('unhandled DarwinCore element: %s' % base_element['element'])
+            raise RuntimeError('unhandled DarwinCore element: %s' % base_element['element'])
 
     def _process_mods_element(self, base_element, location_sections, data_vals):
         #handle various MODS elements
@@ -667,7 +670,7 @@ class Mapper(object):
                         related_item.title = data[0]
                 self._xml_obj.related_items.append(related_item)
         else:
-            raise Exception('MODS element not handled! %s' % base_element)
+            raise RuntimeError('unhandled MODS element: %s' % base_element)
 
     def _add_title_data(self, base_element, location_sections, data_vals):
         for data_divs in data_vals:
@@ -797,7 +800,7 @@ class Mapper(object):
                 elif section[0][u'element'] == u'mods:publisher':
                     self._xml_obj.origin_info.publisher = divs[index]
                 else:
-                    raise Exception('unhandled originInfo element: %s' % section)
+                    raise RuntimeError('unhandled originInfo element: %s' % section)
 
     def _set_date_attributes(self, date, attributes):
         if u'encoding' in attributes:
@@ -935,7 +938,7 @@ def process(spreadsheet, xml_files_dir, sheet=1, control_row=None, force_dates=F
         filename = '%s.%s.xml' % (record.xml_id, record.record_type)
         full_path = os.path.join(xml_files_dir, filename)
         if os.path.exists(full_path):
-            raise Exception('%s already exists!' % filename)
+            raise DataError('%s file already exists from previous record! Possible duplicate %s IDs?' % (filename, record.xml_id))
         if copy_parent_to_children:
             #load parent mods object if desired (& it exists)
             parent_filename = os.path.join(xml_files_dir, u'%s.%s' % (record.group_id, record.record_type))
