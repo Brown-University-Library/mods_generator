@@ -16,7 +16,7 @@ class ControlRowError(RuntimeError):
 
 class XmlRecord:
 
-    def __init__(self, group_id, xml_id, field_data, data_files):
+    def __init__(self, group_id, xml_id, field_data):
         self.group_id = group_id #this is what ties parent records to children
         self.xml_id = xml_id
         if not field_data:
@@ -26,7 +26,6 @@ class XmlRecord:
         else:
             self.record_type = 'mods'
         self._field_data = field_data
-        self.data_files = data_files
 
     def field_data(self):
         #return list of {'xml_path': xxx, 'data': xxx}
@@ -129,7 +128,6 @@ class DataHandler:
             raise Exception(msg)
         xml_records = []
         xml_ids = {}
-        data_file_col = self._get_filename_col()
         genus_col = self._get_col_from_id_names(['<dwc:genus>'])
         index = self._ctrl_row_number
         for data_row in self._get_data_rows():
@@ -163,10 +161,7 @@ class DataHandler:
                     field_data.append({'xml_path': cols_to_map[i], 'data': val})
             if genus_col:
                 field_data = self._dwc_dynamic_fields(genus_col, data_row, field_data)
-            data_files = []
-            if data_file_col is not None:
-                data_files = [df.strip() for df in data_row[data_file_col].split(u',')]
-            xml_records.append(XmlRecord(group_id, xml_id, field_data, data_files))
+            xml_records.append(XmlRecord(group_id, xml_id, field_data))
         return xml_records
 
     def _dwc_dynamic_fields(self, genus_col, data_row, field_data):
@@ -231,11 +226,6 @@ class DataHandler:
     def _get_group_id_col(self):
         '''Get index of column that contains id for tying children to parents'''
         ID_NAMES = [u'id', u'group id']
-        return self._get_col_from_id_names(ID_NAMES)
-
-    def _get_filename_col(self):
-        '''Get index of column that contains data file name(s).'''
-        ID_NAMES = [u'file name', u'filename']
         return self._get_col_from_id_names(ID_NAMES)
 
     def get_row(self, index, data_row=True):
