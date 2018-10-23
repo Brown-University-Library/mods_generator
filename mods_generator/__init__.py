@@ -10,13 +10,17 @@ from eulxml.xmlmap import load_xmlobject_from_file
 from bdrxml import mods, darwincore
 
 
-class XmlRecord(object):
+class ControlRowError(RuntimeError):
+    pass
+
+
+class XmlRecord:
 
     def __init__(self, group_id, xml_id, field_data, data_files):
         self.group_id = group_id #this is what ties parent records to children
         self.xml_id = xml_id
         if not field_data:
-            raise Exception('no field_data for %s: %s' % (group_id, xml_id))
+            raise Exception('no metadata for %s: %s' % (group_id, xml_id))
         if u'<dc' in field_data[0]['xml_path'] or u'<dwc' in field_data[0]['xml_path']:
             self.record_type = 'dwc'
         else:
@@ -29,7 +33,7 @@ class XmlRecord(object):
         return self._field_data
 
 
-class DataHandler(object):
+class DataHandler:
     '''Handle interacting with the data.
     
     Use 1-based values for sheets or rows in public functions.
@@ -37,7 +41,8 @@ class DataHandler(object):
     which is what xlrd uses, and we convert all CSV data to str objects
     as well.
     '''
-    def __init__(self, spreadsheet, input_encoding='utf-8', sheet=1, control_row=2, force_dates=False, object_type='parent'):
+
+    def __init__(self, spreadsheet, input_encoding='utf-8', sheet=1, control_row=None, force_dates=False, object_type='parent'):
         '''Open file and get data from correct sheet.
         
         First, try opening the file as an excel spreadsheet.
@@ -47,7 +52,7 @@ class DataHandler(object):
         self.obj_type = object_type
         self._force_dates = force_dates
         self._input_encoding = input_encoding
-        self._ctrl_row_number = control_row
+        self._user_ctrl_row_number = control_row
         try:
             try:
                 self.book = xlrd.open_workbook(spreadsheet)
@@ -85,22 +90,48 @@ class DataHandler(object):
             if len(row) > 0:
                 self.csvData.append(row)
 
+    def _get_cols_to_map(self, control_row_number):
+        '''Get a dict of columns & values in dataset that should be mapped to XML
+        (some will just be ignored).
+        '''
+        cols = {}
+        ctrl_row = self.get_row(control_row_number, data_row=False)
+        for i, val in enumerate(ctrl_row):
+            val = val.strip()
+            #we'll assume it's to be mapped if we see the start of an XML  tag
+            if val.startswith(u'<'):
+                cols[i] = val
+        return cols
+
+    def _get_ctrl_row_number(self):
+        if self._user_ctrl_row_number:
+            cols_to_map = self._get_cols_to_map(self._user_ctrl_row_number)
+            if cols_to_map:
+                return self._user_ctrl_row_number, cols_to_map
+        else:
+            cols_to_map = self._get_cols_to_map(1)
+            if cols_to_map:
+                return 1, cols_to_map
+            else:
+                cols_to_map = self._get_cols_to_map(2)
+                if cols_to_map:
+                    return 2, cols_to_map
+        raise ControlRowError('found no control row with mapping information')
+
     def get_xml_records(self):
         '''skips rows without a group id or xml id'''
+        self._ctrl_row_number, cols_to_map = self._get_ctrl_row_number()
         group_id_col = self._get_group_id_col()
         xml_id_col = self._get_xml_id_col()
         if group_id_col is None and xml_id_col is None:
             msg = 'no group id column (called "id", or "group id")'
             msg = msg + ' or xml id column (called "mods id" or with the xml id mapping)'
             raise Exception(msg)
-        index = self._ctrl_row_number
         xml_records = []
         xml_ids = {}
         data_file_col = self._get_filename_col()
-        cols_to_map = self.get_cols_to_map()
-        if not cols_to_map:
-            raise Exception('found no mapping information')
         genus_col = self._get_col_from_id_names(['<dwc:genus>'])
+        index = self._ctrl_row_number
         for data_row in self._get_data_rows():
             index += 1
             group_id = None
@@ -179,18 +210,14 @@ class DataHandler(object):
         for i in range(self._ctrl_row_number+1, self._get_total_rows()+1):
             yield self.get_row(i)
 
-    def _get_control_row(self):
-        '''Retrieve the row that controls XML mapping locations.'''
-        return self.get_row(self._ctrl_row_number)
-
     def _get_col_from_id_names(self, id_names):
         id_names_lower = [n.lower() for n in id_names]
         #try control row first
-        for i, val in enumerate(self._get_control_row()):
+        for i, val in enumerate(self.get_row(self._ctrl_row_number, data_row=False)):
             if val.lower() in id_names_lower:
                 return i
         #try first row if needed
-        for i, val in enumerate(self.get_row(1)):
+        for i, val in enumerate(self.get_row(1, data_row=False)):
             if val.lower() in id_names_lower:
                 return i
         #we didn't find the column
@@ -211,21 +238,11 @@ class DataHandler(object):
         ID_NAMES = [u'file name', u'filename']
         return self._get_col_from_id_names(ID_NAMES)
 
-    def get_cols_to_map(self):
-        '''Get a dict of columns & values in dataset that should be mapped to XML
-        (some will just be ignored).
-        '''
-        cols = {}
-        ctrl_row = self._get_control_row()
-        for i, val in enumerate(ctrl_row):
-            val = val.strip()
-            #we'll assume it's to be mapped if we see the start of an XML  tag
-            if val.startswith(u'<'):
-                cols[i] = val
-        return cols
+    def get_row(self, index, data_row=True):
+        '''Retrieve a list of str values (index is 1-based like excel)
 
-    def get_row(self, index):
-        '''Retrieve a list of str values (index is 1-based like excel)'''
+        data_row: tell us whether we're getting a data row (where we do extra work), or just the control row.
+        '''
         #subtract 1 from index so that it's 0-based like xlrd and csvData list
         index = index - 1
         if self.data_type == 'xlrd':
@@ -233,8 +250,8 @@ class DataHandler(object):
             #In a data column that's mapped to a date field, we could find a text
             #   string that looks like a date - we might want to reformat 
             #   that as well.
-            if index > (self._ctrl_row_number-1):
-                for i, v in enumerate(self._get_control_row()):
+            if data_row:
+                for i, v in enumerate(self.get_row(self._ctrl_row_number, data_row=False)):
                     if 'date' in v.lower() and 'verbatim' not in v.lower():
                         if isinstance(row[i], str):
                             #we may have a text date, so see if we can understand it
@@ -273,8 +290,8 @@ class DataHandler(object):
                             row[i] = '{0:%Y-%m-%d %H:%M:%S}'.format(d)
         elif self.data_type == 'csv':
             row = self.csvData[index]
-            if index > (self._ctrl_row_number-1):
-                for i, v in enumerate(self._get_control_row()):
+            if data_row:
+                for i, v in enumerate(self.get_row(self._ctrl_row_number, data_row=False)):
                     if 'date' in v.lower() and 'verbatim' not in v.lower():
                         if isinstance(row[i], str):
                             #we may have a text date, so see if we can understand it
@@ -291,7 +308,6 @@ class DataHandler(object):
                 #   the encoding
                 except TypeError:
                     row[i] = str(v)
-        #finally return the row
         return row
 
     def _get_total_rows(self):
@@ -932,7 +948,7 @@ class LocationParser(object):
         return attributes
 
 
-def process(spreadsheet, xml_files_dir, sheet=1, control_row=2, force_dates=False,
+def process(spreadsheet, xml_files_dir, sheet=1, control_row=None, force_dates=False,
         object_type='parent', input_encoding='utf8', copy_parent_to_children=False):
     '''Function to go through all the data and process it.'''
     #make sure we have a directory to put the mods files in

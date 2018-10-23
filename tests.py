@@ -6,7 +6,7 @@ import unittest
 
 from bdrxml.mods import Mods
 from bdrxml.darwincore import SimpleDarwinRecord
-from mods_generator import LocationParser, DataHandler, Mapper, process_text_date, process
+from mods_generator import ControlRowError, LocationParser, DataHandler, Mapper, process_text_date, process
 
 
 class TestLocationParser(unittest.TestCase):
@@ -272,8 +272,30 @@ class TestOther(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(tmp, '1.mods.xml')))
 
 
+class TestControlRow(unittest.TestCase):
+
+    def test_find_ctrl_row_first_row(self):
+        csv_info = 'mods id,<mods:note>\n1,asdf\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp)
+            self.assertTrue(os.path.exists(os.path.join(tmp, '1.mods.xml')))
+            self.assertEqual(len(os.listdir(tmp)), 1)
+
+    def test_find_ctrl_row_second_row(self):
+        csv_info = 'MODS,Note\nmods id,<mods:note>\n1,asdf\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp)
+            self.assertTrue(os.path.exists(os.path.join(tmp, '1.mods.xml')))
+            self.assertEqual(len(os.listdir(tmp)), 1)
+
+    def test_no_ctrl_row(self):
+        csv_info = 'MODS,Note\n1,asdf\n2,jkl;'
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ControlRowError):
+                process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp)
+
+
 class TestMapper(unittest.TestCase):
-    '''Test Mapper class.'''
 
     FULL_MODS = '''<?xml version='1.0' encoding='UTF-8'?>
 <mods:mods xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-7.xsd" ID="mods000">
