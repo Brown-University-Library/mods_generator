@@ -94,43 +94,43 @@ class DataHandler:
         (some will just be ignored).
         '''
         cols = {}
-        ctrl_row = self.get_row(control_row_number, data_row=False)
+        ctrl_row = self.get_row(control_row_number)
         for i, val in enumerate(ctrl_row):
             val = val.strip()
             #we'll assume it's to be mapped if we see the start of an XML  tag
             if val.startswith(u'<'):
                 cols[i] = val
-        return cols
+        return cols, ctrl_row
 
-    def _get_ctrl_row_number(self):
+    def _parse_control_row(self):
         if self._user_ctrl_row_number:
-            cols_to_map = self._get_cols_to_map(self._user_ctrl_row_number)
+            cols_to_map, ctrl_row_values = self._get_cols_to_map(self._user_ctrl_row_number)
             if cols_to_map:
-                return self._user_ctrl_row_number, cols_to_map
+                return self._user_ctrl_row_number, ctrl_row_values, cols_to_map
         else:
-            cols_to_map = self._get_cols_to_map(1)
+            cols_to_map, ctrl_row_values = self._get_cols_to_map(1)
             if cols_to_map:
-                return 1, cols_to_map
+                return 1, ctrl_row_values, cols_to_map
             else:
-                cols_to_map = self._get_cols_to_map(2)
+                cols_to_map, ctrl_row_values = self._get_cols_to_map(2)
                 if cols_to_map:
-                    return 2, cols_to_map
+                    return 2, ctrl_row_values, cols_to_map
         raise ControlRowError('found no control row with mapping information')
 
     def get_xml_records(self):
         '''skips rows without a group id or xml id'''
-        self._ctrl_row_number, cols_to_map = self._get_ctrl_row_number()
-        group_id_col = self._get_group_id_col()
-        xml_id_col = self._get_xml_id_col()
+        ctrl_row_number, control_row_values, cols_to_map = self._parse_control_row()
+        group_id_col = self._get_column_index_from_id_names(['id', 'group id'], control_row_values)
+        xml_id_col = self._get_column_index_from_id_names(['mods id', '<mods:mods id="">'], control_row_values)
         if group_id_col is None and xml_id_col is None:
             msg = 'no group id column (called "id", or "group id")'
             msg = msg + ' or xml id column (called "mods id" or with the xml id mapping)'
             raise Exception(msg)
         xml_records = []
         xml_ids = {}
-        genus_col = self._get_col_from_id_names(['<dwc:genus>'])
-        index = self._ctrl_row_number
-        for data_row in self._get_data_rows():
+        genus_col = self._get_column_index_from_id_names(['<dwc:genus>'], control_row_values)
+        index = ctrl_row_number
+        for data_row in self._get_data_rows(ctrl_row_number=ctrl_row_number, control_row_values=control_row_values):
             index += 1
             group_id = None
             xml_id = None
@@ -160,20 +160,20 @@ class DataHandler:
                 if i in cols_to_map and len(val) > 0:
                     field_data.append({'xml_path': cols_to_map[i], 'data': val})
             if genus_col:
-                field_data = self._dwc_dynamic_fields(genus_col, data_row, field_data)
+                field_data = self._dwc_dynamic_fields(genus_col, data_row, field_data, control_row_values)
             xml_records.append(XmlRecord(group_id, xml_id, field_data))
         return xml_records
 
-    def _dwc_dynamic_fields(self, genus_col, data_row, field_data):
+    def _dwc_dynamic_fields(self, genus_col, data_row, field_data, control_row_values):
         #sets scientificNameAuthorship, acceptedNameUsage, infraspecificEpithet, and taxonRank
-        species_col = self._get_col_from_id_names(['<dwc:specificEpithet>'])
-        species_author_col = self._get_col_from_id_names(['dwc_species_author'])
+        species_col = self._get_column_index_from_id_names(['<dwc:specificEpithet>'], control_row_values)
+        species_author_col = self._get_column_index_from_id_names(['dwc_species_author'], control_row_values)
         accepted_name_usage = u'%s %s' % (data_row[genus_col], data_row[species_col])
         infraspecific_epithet = ''
         taxon_rank = ''
         scientific_name_authorship = data_row[species_author_col] or ''
-        variety_col = self._get_col_from_id_names(['dwc_variety'])
-        variety_author_col = self._get_col_from_id_names(['dwc_variety_author'])
+        variety_col = self._get_column_index_from_id_names(['dwc_variety'], control_row_values)
+        variety_author_col = self._get_column_index_from_id_names(['dwc_variety_author'], control_row_values)
         if data_row[variety_col]:
             infraspecific_epithet = data_row[variety_col]
             taxon_rank = 'variety'
@@ -181,8 +181,8 @@ class DataHandler:
             if data_row[variety_author_col]:
                 scientific_name_authorship = data_row[variety_author_col]
         else:
-            subspecies_col = self._get_col_from_id_names(['dwc_subspecies'])
-            subspecies_author_col = self._get_col_from_id_names(['dwc_subspecies_author'])
+            subspecies_col = self._get_column_index_from_id_names(['dwc_subspecies'], control_row_values)
+            subspecies_author_col = self._get_column_index_from_id_names(['dwc_subspecies_author'], control_row_values)
             if data_row[subspecies_col]:
                 infraspecific_epithet = data_row[subspecies_col]
                 taxon_rank = 'subspecies'
@@ -200,39 +200,22 @@ class DataHandler:
             field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': accepted_name_usage.strip()})
         return field_data
 
-    def _get_data_rows(self):
+    def _get_data_rows(self, ctrl_row_number, control_row_values):
         '''data rows will be all the rows after the control row'''
-        for i in range(self._ctrl_row_number+1, self._get_total_rows()+1):
-            yield self.get_row(i)
+        for i in range(ctrl_row_number+1, self._get_total_rows()+1):
+            yield self.get_row(i, control_row_values=control_row_values)
 
-    def _get_col_from_id_names(self, id_names):
+    def _get_column_index_from_id_names(self, id_names, control_row_values):
+        '''Get a column index from set of strings - looking in the control row'''
         id_names_lower = [n.lower() for n in id_names]
-        #try control row first
-        for i, val in enumerate(self.get_row(self._ctrl_row_number, data_row=False)):
-            if val.lower() in id_names_lower:
-                return i
-        #try first row if needed
-        for i, val in enumerate(self.get_row(1, data_row=False)):
+        for i, val in enumerate(control_row_values):
             if val.lower() in id_names_lower:
                 return i
         #we didn't find the column
         return None
 
-    def _get_xml_id_col(self):
-        '''column that contains the xml id for this record'''
-        ID_NAMES = [u'mods id', u'<mods:mods id="">']
-        return self._get_col_from_id_names(ID_NAMES)
-
-    def _get_group_id_col(self):
-        '''Get index of column that contains id for tying children to parents'''
-        ID_NAMES = [u'id', u'group id']
-        return self._get_col_from_id_names(ID_NAMES)
-
-    def get_row(self, index, data_row=True):
-        '''Retrieve a list of str values (index is 1-based like excel)
-
-        data_row: tell us whether we're getting a data row (where we do extra work), or just the control row.
-        '''
+    def get_row(self, index, control_row_values=None):
+        '''Retrieve a list of str values (index is 1-based like excel)'''
         #subtract 1 from index so that it's 0-based like xlrd and csvData list
         index = index - 1
         if self.data_type == 'xlrd':
@@ -240,8 +223,8 @@ class DataHandler:
             #In a data column that's mapped to a date field, we could find a text
             #   string that looks like a date - we might want to reformat 
             #   that as well.
-            if data_row:
-                for i, v in enumerate(self.get_row(self._ctrl_row_number, data_row=False)):
+            if control_row_values:
+                for i, v in enumerate(control_row_values):
                     if 'date' in v.lower() and 'verbatim' not in v.lower():
                         if isinstance(row[i], str):
                             #we may have a text date, so see if we can understand it
@@ -280,8 +263,8 @@ class DataHandler:
                             row[i] = '{0:%Y-%m-%d %H:%M:%S}'.format(d)
         elif self.data_type == 'csv':
             row = self.csvData[index]
-            if data_row:
-                for i, v in enumerate(self.get_row(self._ctrl_row_number, data_row=False)):
+            if control_row_values:
+                for i, v in enumerate(control_row_values):
                     if 'date' in v.lower() and 'verbatim' not in v.lower():
                         if isinstance(row[i], str):
                             #we may have a text date, so see if we can understand it
