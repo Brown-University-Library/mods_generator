@@ -10,26 +10,32 @@ from eulxml.xmlmap import load_xmlobject_from_file
 from bdrxml import mods, darwincore
 
 
-class XmlRecord(object):
+class ControlRowError(RuntimeError):
+    pass
 
-    def __init__(self, group_id, xml_id, field_data, data_files):
+class ModsMappingError(RuntimeError):
+    pass
+
+
+class XmlRecord:
+
+    def __init__(self, group_id, xml_id, field_data):
         self.group_id = group_id #this is what ties parent records to children
         self.xml_id = xml_id
         if not field_data:
-            raise Exception('no field_data for %s: %s' % (group_id, xml_id))
+            raise Exception('no metadata for %s: %s' % (group_id, xml_id))
         if u'<dc' in field_data[0]['xml_path'] or u'<dwc' in field_data[0]['xml_path']:
             self.record_type = 'dwc'
         else:
             self.record_type = 'mods'
         self._field_data = field_data
-        self.data_files = data_files
 
     def field_data(self):
         #return list of {'xml_path': xxx, 'data': xxx}
         return self._field_data
 
 
-class DataHandler(object):
+class DataHandler:
     '''Handle interacting with the data.
     
     Use 1-based values for sheets or rows in public functions.
@@ -37,7 +43,8 @@ class DataHandler(object):
     which is what xlrd uses, and we convert all CSV data to str objects
     as well.
     '''
-    def __init__(self, spreadsheet, input_encoding='utf-8', sheet=1, control_row=2, force_dates=False, object_type='parent'):
+
+    def __init__(self, spreadsheet, input_encoding='utf-8', sheet=1, control_row=None, force_dates=False, object_type='parent'):
         '''Open file and get data from correct sheet.
         
         First, try opening the file as an excel spreadsheet.
@@ -47,7 +54,7 @@ class DataHandler(object):
         self.obj_type = object_type
         self._force_dates = force_dates
         self._input_encoding = input_encoding
-        self._ctrl_row_number = control_row
+        self._user_ctrl_row_number = control_row
         try:
             try:
                 self.book = xlrd.open_workbook(spreadsheet)
@@ -85,23 +92,47 @@ class DataHandler(object):
             if len(row) > 0:
                 self.csvData.append(row)
 
+    def _get_cols_to_map(self, control_row_number):
+        '''Get a dict of columns & values in dataset that should be mapped to XML
+        (some will just be ignored).
+        '''
+        cols = {}
+        ctrl_row = self.get_row(control_row_number)
+        for i, val in enumerate(ctrl_row):
+            val = val.strip()
+            #we'll assume it's to be mapped if we see the start of an XML  tag
+            if val.startswith(u'<'):
+                cols[i] = val
+        return cols, ctrl_row
+
+    def _parse_control_row(self):
+        if self._user_ctrl_row_number:
+            cols_to_map, ctrl_row_values = self._get_cols_to_map(self._user_ctrl_row_number)
+            if cols_to_map:
+                return self._user_ctrl_row_number, ctrl_row_values, cols_to_map
+        else:
+            cols_to_map, ctrl_row_values = self._get_cols_to_map(1)
+            if cols_to_map:
+                return 1, ctrl_row_values, cols_to_map
+            else:
+                cols_to_map, ctrl_row_values = self._get_cols_to_map(2)
+                if cols_to_map:
+                    return 2, ctrl_row_values, cols_to_map
+        raise ControlRowError('found no control row with mapping information')
+
     def get_xml_records(self):
         '''skips rows without a group id or xml id'''
-        group_id_col = self._get_group_id_col()
-        xml_id_col = self._get_xml_id_col()
+        ctrl_row_number, control_row_values, cols_to_map = self._parse_control_row()
+        group_id_col = self._get_column_index_from_id_names(['parent id', 'group id'], control_row_values)
+        xml_id_col = self._get_column_index_from_id_names(['id', 'mods id', '<mods:mods id="">'], control_row_values)
         if group_id_col is None and xml_id_col is None:
-            msg = 'no group id column (called "id", or "group id")'
-            msg = msg + ' or xml id column (called "mods id" or with the xml id mapping)'
-            raise Exception(msg)
-        index = self._ctrl_row_number
+            msg = 'no ID column (called "ID" or "MODS ID" or mapped as <mods:mods id="">) in control row'
+            raise ControlRowError(msg)
         xml_records = []
         xml_ids = {}
-        data_file_col = self._get_filename_col()
-        cols_to_map = self.get_cols_to_map()
-        if not cols_to_map:
-            raise Exception('found no mapping information')
-        genus_col = self._get_col_from_id_names(['<dwc:genus>'])
-        for data_row in self._get_data_rows():
+        genus_col = self._get_column_index_from_id_names(['<dwc:genus>'], control_row_values)
+        index = ctrl_row_number
+        for data_row in self._get_data_rows(ctrl_row_number=ctrl_row_number, control_row_values=control_row_values):
             index += 1
             group_id = None
             xml_id = None
@@ -131,23 +162,20 @@ class DataHandler(object):
                 if i in cols_to_map and len(val) > 0:
                     field_data.append({'xml_path': cols_to_map[i], 'data': val})
             if genus_col:
-                field_data = self._dwc_dynamic_fields(genus_col, data_row, field_data)
-            data_files = []
-            if data_file_col is not None:
-                data_files = [df.strip() for df in data_row[data_file_col].split(u',')]
-            xml_records.append(XmlRecord(group_id, xml_id, field_data, data_files))
+                field_data = self._dwc_dynamic_fields(genus_col, data_row, field_data, control_row_values)
+            xml_records.append(XmlRecord(group_id, xml_id, field_data))
         return xml_records
 
-    def _dwc_dynamic_fields(self, genus_col, data_row, field_data):
+    def _dwc_dynamic_fields(self, genus_col, data_row, field_data, control_row_values):
         #sets scientificNameAuthorship, acceptedNameUsage, infraspecificEpithet, and taxonRank
-        species_col = self._get_col_from_id_names(['<dwc:specificEpithet>'])
-        species_author_col = self._get_col_from_id_names(['dwc_species_author'])
+        species_col = self._get_column_index_from_id_names(['<dwc:specificEpithet>'], control_row_values)
+        species_author_col = self._get_column_index_from_id_names(['dwc_species_author'], control_row_values)
         accepted_name_usage = u'%s %s' % (data_row[genus_col], data_row[species_col])
         infraspecific_epithet = ''
         taxon_rank = ''
         scientific_name_authorship = data_row[species_author_col] or ''
-        variety_col = self._get_col_from_id_names(['dwc_variety'])
-        variety_author_col = self._get_col_from_id_names(['dwc_variety_author'])
+        variety_col = self._get_column_index_from_id_names(['dwc_variety'], control_row_values)
+        variety_author_col = self._get_column_index_from_id_names(['dwc_variety_author'], control_row_values)
         if data_row[variety_col]:
             infraspecific_epithet = data_row[variety_col]
             taxon_rank = 'variety'
@@ -155,8 +183,8 @@ class DataHandler(object):
             if data_row[variety_author_col]:
                 scientific_name_authorship = data_row[variety_author_col]
         else:
-            subspecies_col = self._get_col_from_id_names(['dwc_subspecies'])
-            subspecies_author_col = self._get_col_from_id_names(['dwc_subspecies_author'])
+            subspecies_col = self._get_column_index_from_id_names(['dwc_subspecies'], control_row_values)
+            subspecies_author_col = self._get_column_index_from_id_names(['dwc_subspecies_author'], control_row_values)
             if data_row[subspecies_col]:
                 infraspecific_epithet = data_row[subspecies_col]
                 taxon_rank = 'subspecies'
@@ -174,57 +202,21 @@ class DataHandler(object):
             field_data.append({'xml_path': '<dwc:acceptedNameUsage>', 'data': accepted_name_usage.strip()})
         return field_data
 
-    def _get_data_rows(self):
+    def _get_data_rows(self, ctrl_row_number, control_row_values):
         '''data rows will be all the rows after the control row'''
-        for i in range(self._ctrl_row_number+1, self._get_total_rows()+1):
-            yield self.get_row(i)
+        for i in range(ctrl_row_number+1, self._get_total_rows()+1):
+            yield self.get_row(i, control_row_values=control_row_values)
 
-    def _get_control_row(self):
-        '''Retrieve the row that controls XML mapping locations.'''
-        return self.get_row(self._ctrl_row_number)
-
-    def _get_col_from_id_names(self, id_names):
+    def _get_column_index_from_id_names(self, id_names, control_row_values):
+        '''Get a column index from set of strings - looking in the control row'''
         id_names_lower = [n.lower() for n in id_names]
-        #try control row first
-        for i, val in enumerate(self._get_control_row()):
-            if val.lower() in id_names_lower:
-                return i
-        #try first row if needed
-        for i, val in enumerate(self.get_row(1)):
+        for i, val in enumerate(control_row_values):
             if val.lower() in id_names_lower:
                 return i
         #we didn't find the column
         return None
 
-    def _get_xml_id_col(self):
-        '''column that contains the xml id for this record'''
-        ID_NAMES = [u'mods id', u'<mods:mods id="">']
-        return self._get_col_from_id_names(ID_NAMES)
-
-    def _get_group_id_col(self):
-        '''Get index of column that contains id for tying children to parents'''
-        ID_NAMES = [u'id', u'group id']
-        return self._get_col_from_id_names(ID_NAMES)
-
-    def _get_filename_col(self):
-        '''Get index of column that contains data file name(s).'''
-        ID_NAMES = [u'file name', u'filename']
-        return self._get_col_from_id_names(ID_NAMES)
-
-    def get_cols_to_map(self):
-        '''Get a dict of columns & values in dataset that should be mapped to XML
-        (some will just be ignored).
-        '''
-        cols = {}
-        ctrl_row = self._get_control_row()
-        for i, val in enumerate(ctrl_row):
-            val = val.strip()
-            #we'll assume it's to be mapped if we see the start of an XML  tag
-            if val.startswith(u'<'):
-                cols[i] = val
-        return cols
-
-    def get_row(self, index):
+    def get_row(self, index, control_row_values=None):
         '''Retrieve a list of str values (index is 1-based like excel)'''
         #subtract 1 from index so that it's 0-based like xlrd and csvData list
         index = index - 1
@@ -233,8 +225,8 @@ class DataHandler(object):
             #In a data column that's mapped to a date field, we could find a text
             #   string that looks like a date - we might want to reformat 
             #   that as well.
-            if index > (self._ctrl_row_number-1):
-                for i, v in enumerate(self._get_control_row()):
+            if control_row_values:
+                for i, v in enumerate(control_row_values):
                     if 'date' in v.lower() and 'verbatim' not in v.lower():
                         if isinstance(row[i], str):
                             #we may have a text date, so see if we can understand it
@@ -273,8 +265,8 @@ class DataHandler(object):
                             row[i] = '{0:%Y-%m-%d %H:%M:%S}'.format(d)
         elif self.data_type == 'csv':
             row = self.csvData[index]
-            if index > (self._ctrl_row_number-1):
-                for i, v in enumerate(self._get_control_row()):
+            if control_row_values:
+                for i, v in enumerate(control_row_values):
                     if 'date' in v.lower() and 'verbatim' not in v.lower():
                         if isinstance(row[i], str):
                             #we may have a text date, so see if we can understand it
@@ -291,7 +283,6 @@ class DataHandler(object):
                 #   the encoding
                 except TypeError:
                     row[i] = str(v)
-        #finally return the row
         return row
 
     def _get_total_rows(self):
@@ -420,7 +411,7 @@ class Mapper(object):
     def add_data(self, mods_loc, data):
         '''Method to actually put the data in the correct place of XML obj.'''
         #parse location info into elements/attributes
-        loc = LocationParser(mods_loc)
+        loc = ModsMappingParser(mods_loc)
         base_element = loc.get_base_element()
         location_sections = loc.get_sections()
         #Darwin core can't have repeated fields like mods. Some fields are lists, so there can be multiple
@@ -818,7 +809,7 @@ class Mapper(object):
         return date
 
 
-class LocationParser(object):
+class ModsMappingParser:
     '''class for parsing dataset location instructions (for various XML formats).
     eg. <mods:name type="personal"><mods:namePart>#<mods:namePart type="date">#<mods:namePart type="termsOfAddress">'''
 
@@ -856,15 +847,15 @@ class LocationParser(object):
                 attributes = {}
             return ({u'element': name, u'attributes': attributes, u'data': None}, data)
         else:
-            raise Exception('Error parsing "%s"!' % data.encode('utf-8'))
+            raise ModsMappingError('Error parsing "%s"!' % data.encode('utf-8'))
 
     def _parse(self):
         '''Get the first Mods field we're looking at in this string.'''
         #first strip off leading & trailing whitespace
         data = self._data.strip()
         #very basic data checking
-        if data[0] != u'<':
-            raise Exception('location data must start with "<"')
+        if data[0] != '<':
+            raise ModsMappingError('MODS mapping data must start with "<"')
         #grab base element (eg. mods:originInfo, mods:name, ...)
         self._base_element, data = self._parse_base_element(data)
         if not data:
@@ -886,7 +877,7 @@ class LocationParser(object):
                     if tag[:2] == u'</':
                         continue
                 else:
-                    raise Exception('Error parsing "%s"!' % section)
+                    raise ModsMappingError('Error parsing "%s"!' % section)
                 #get element name and attributes to put in list
                 space = tag.find(u' ')
                 if space > 0:
@@ -928,11 +919,11 @@ class LocationParser(object):
                 attributes[attr] = val
                 data = data[valEnd+1:].strip()
             else:
-                raise Exception('Error parsing attributes. data = "%s"' % data)
+                raise ModsMappingError('Error parsing attributes. data = "%s"' % data)
         return attributes
 
 
-def process(spreadsheet, xml_files_dir, sheet=1, control_row=2, force_dates=False,
+def process(spreadsheet, xml_files_dir, sheet=1, control_row=None, force_dates=False,
         object_type='parent', input_encoding='utf8', copy_parent_to_children=False):
     '''Function to go through all the data and process it.'''
     #make sure we have a directory to put the mods files in
