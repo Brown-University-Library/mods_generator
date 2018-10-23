@@ -13,6 +13,9 @@ from bdrxml import mods, darwincore
 class ControlRowError(RuntimeError):
     pass
 
+class ModsMappingError(RuntimeError):
+    pass
+
 
 class XmlRecord:
 
@@ -408,7 +411,7 @@ class Mapper(object):
     def add_data(self, mods_loc, data):
         '''Method to actually put the data in the correct place of XML obj.'''
         #parse location info into elements/attributes
-        loc = LocationParser(mods_loc)
+        loc = ModsMappingParser(mods_loc)
         base_element = loc.get_base_element()
         location_sections = loc.get_sections()
         #Darwin core can't have repeated fields like mods. Some fields are lists, so there can be multiple
@@ -806,7 +809,7 @@ class Mapper(object):
         return date
 
 
-class LocationParser(object):
+class ModsMappingParser:
     '''class for parsing dataset location instructions (for various XML formats).
     eg. <mods:name type="personal"><mods:namePart>#<mods:namePart type="date">#<mods:namePart type="termsOfAddress">'''
 
@@ -844,15 +847,15 @@ class LocationParser(object):
                 attributes = {}
             return ({u'element': name, u'attributes': attributes, u'data': None}, data)
         else:
-            raise Exception('Error parsing "%s"!' % data.encode('utf-8'))
+            raise ModsMappingError('Error parsing "%s"!' % data.encode('utf-8'))
 
     def _parse(self):
         '''Get the first Mods field we're looking at in this string.'''
         #first strip off leading & trailing whitespace
         data = self._data.strip()
         #very basic data checking
-        if data[0] != u'<':
-            raise Exception('location data must start with "<"')
+        if data[0] != '<':
+            raise ModsMappingError('MODS mapping data must start with "<"')
         #grab base element (eg. mods:originInfo, mods:name, ...)
         self._base_element, data = self._parse_base_element(data)
         if not data:
@@ -874,7 +877,7 @@ class LocationParser(object):
                     if tag[:2] == u'</':
                         continue
                 else:
-                    raise Exception('Error parsing "%s"!' % section)
+                    raise ModsMappingError('Error parsing "%s"!' % section)
                 #get element name and attributes to put in list
                 space = tag.find(u' ')
                 if space > 0:
@@ -916,7 +919,7 @@ class LocationParser(object):
                 attributes[attr] = val
                 data = data[valEnd+1:].strip()
             else:
-                raise Exception('Error parsing attributes. data = "%s"' % data)
+                raise ModsMappingError('Error parsing attributes. data = "%s"' % data)
         return attributes
 
 

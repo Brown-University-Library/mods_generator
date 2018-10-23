@@ -6,17 +6,17 @@ import unittest
 
 from bdrxml.mods import Mods
 from bdrxml.darwincore import SimpleDarwinRecord
-from mods_generator import ControlRowError, LocationParser, DataHandler, Mapper, process_text_date, process
+from mods_generator import ControlRowError, ModsMappingError, ModsMappingParser, DataHandler, Mapper, process_text_date, process
 
 
-class TestLocationParser(unittest.TestCase):
+class TestModsMappingParser(unittest.TestCase):
 
     def setUp(self):
         pass
 
     def test_single_tag(self):
         loc = '<mods:identifier type="local" displayLabel="PN_DB_id">'
-        locParser = LocationParser(loc)
+        locParser = ModsMappingParser(loc)
         base_element = locParser.get_base_element()
         self.assertEqual(base_element['element'], 'mods:identifier')
         self.assertEqual(base_element['attributes'], {'type': 'local', 'displayLabel': 'PN_DB_id'})
@@ -26,7 +26,7 @@ class TestLocationParser(unittest.TestCase):
 
     def test_multi_tag(self):
         loc = '<mods:titleInfo><mods:title>'
-        locParser = LocationParser(loc)
+        locParser = ModsMappingParser(loc)
         base_element = locParser.get_base_element()
         self.assertEqual(base_element['element'], 'mods:titleInfo')
         self.assertEqual(base_element['attributes'], {})
@@ -41,7 +41,7 @@ class TestLocationParser(unittest.TestCase):
 
     def test_name_tag(self):
         loc = '<mods:name type="personal"><mods:namePart>#<mods:role><mods:roleTerm type="text">winner'
-        locParser = LocationParser(loc)
+        locParser = ModsMappingParser(loc)
         base_element = locParser.get_base_element()
         self.assertEqual(base_element['element'], 'mods:name')
         self.assertEqual(base_element['attributes'], {'type': 'personal'})
@@ -64,7 +64,7 @@ class TestLocationParser(unittest.TestCase):
 
     def test_another_tag(self):
         loc = '<mods:subject><mods:hierarchicalGeographic><mods:country>United States</mods:country><mods:state>'
-        locParser = LocationParser(loc)
+        locParser = ModsMappingParser(loc)
         base_element = locParser.get_base_element()
         self.assertEqual(base_element['element'], 'mods:subject')
         self.assertEqual(base_element['attributes'], {})
@@ -80,13 +80,8 @@ class TestLocationParser(unittest.TestCase):
 
     def test_invalid_loc(self):
         loc = 'asdf1234'
-        try:
-            locParser = LocationParser(loc)
-        except Exception:
-            #return successfully if Exception was raised
-            return
-        #if we got here, no Exception was raised, so fail the test
-        self.fail('Did not raise Exception on bad input!')
+        with self.assertRaises(ModsMappingError):
+            ModsMappingParser(loc)
 
 
 class TestDataHandler(unittest.TestCase):
