@@ -294,6 +294,21 @@ class TestControlRow(unittest.TestCase):
             with self.assertRaises(ControlRowError):
                 process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp)
 
+    def test_id(self):
+        '''The ID field is the main ID of this record, which will be used to generate the filename (ie. <ID>.mods.xml).'''
+        for csv_info in ['ID,<mods:note>\n1,asdf\n', 'MODS ID,<mods:note>\n1,asdf\n', '<mods:mods id="">,<mods:note>\n1,asdf\n']:
+            with self.subTest(csv_info=csv_info):
+                with tempfile.TemporaryDirectory() as tmp:
+                    process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp)
+                    self.assertTrue(os.path.exists(os.path.join(tmp, '1.mods.xml')))
+                    self.assertEqual(len(os.listdir(tmp)), 1)
+
+    def test_missing_id(self):
+        csv_info = '<mods:abstract>,<mods:note>\nasdf,jkl;\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ControlRowError):
+                process(spreadsheet=io.BytesIO(csv_info.encode('utf8')), xml_files_dir=tmp)
+
 
 class TestMapper(unittest.TestCase):
 

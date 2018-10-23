@@ -120,12 +120,11 @@ class DataHandler:
     def get_xml_records(self):
         '''skips rows without a group id or xml id'''
         ctrl_row_number, control_row_values, cols_to_map = self._parse_control_row()
-        group_id_col = self._get_column_index_from_id_names(['id', 'group id'], control_row_values)
-        xml_id_col = self._get_column_index_from_id_names(['mods id', '<mods:mods id="">'], control_row_values)
+        group_id_col = self._get_column_index_from_id_names(['parent id', 'group id'], control_row_values)
+        xml_id_col = self._get_column_index_from_id_names(['id', 'mods id', '<mods:mods id="">'], control_row_values)
         if group_id_col is None and xml_id_col is None:
-            msg = 'no group id column (called "id", or "group id")'
-            msg = msg + ' or xml id column (called "mods id" or with the xml id mapping)'
-            raise Exception(msg)
+            msg = 'no ID column (called "ID" or "MODS ID" or mapped as <mods:mods id="">) in control row'
+            raise ControlRowError(msg)
         xml_records = []
         xml_ids = {}
         genus_col = self._get_column_index_from_id_names(['<dwc:genus>'], control_row_values)
