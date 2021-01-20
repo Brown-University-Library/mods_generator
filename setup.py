@@ -5,7 +5,7 @@ setup(name='mods_generator',
     packages=find_packages(),
     install_requires=[
         'bdrxml',
-        'xlrd',
+        'xlrd<2.0.0',
     ]
 )
 
